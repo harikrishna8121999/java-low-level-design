@@ -14,7 +14,10 @@
 .topbar a.brand:hover,.topbar .crumb a:hover{color:var(--accent-text)}
 .nav-btn{padding:6px 10px}
 aside.pnav{position:sticky;top:56px;height:calc(100vh - 56px);overflow:auto;padding:24px 10px 28px 14px;border-right:1px solid var(--border);background:var(--bg-soft)}
-.pnav .home{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--muted);text-decoration:none;padding:6px 10px;border-radius:7px;margin-bottom:6px}
+.pnav .phead{display:flex;align-items:center;gap:6px;margin-bottom:6px}
+.pnav .home{flex:1;display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--muted);text-decoration:none;padding:6px 10px;border-radius:7px}
+.pcol{flex:none;width:28px;height:28px;padding:0;border-radius:7px;border:1px solid var(--border);background:var(--bg);color:var(--muted);cursor:pointer;font:600 17px/1 Inter,system-ui,sans-serif;display:grid;place-items:center}
+.pcol:hover{color:var(--accent-text);border-color:var(--accent)}
 .pnav .home:hover{color:var(--accent-text);background:var(--bg)}
 .pnav .lvl{display:block;margin:16px 0 4px 10px;font-size:11.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);text-decoration:none}
 .pnav .lvl:hover{color:var(--accent-text)}
@@ -31,8 +34,10 @@ aside.pnav{position:sticky;top:56px;height:calc(100vh - 56px);overflow:auto;padd
 .pn .next{grid-column:2;text-align:right}
 @media (min-width:1280px){
   body.has-pnav .layout{grid-template-columns:230px 250px minmax(0,1fr);max-width:1720px}
-  body.pnav-hidden .layout{grid-template-columns:250px minmax(0,1fr);max-width:1440px}
-  body.pnav-hidden aside.pnav{display:none}
+  .nav-btn{display:none}
+  body.pnav-hidden .layout{grid-template-columns:48px 250px minmax(0,1fr)}
+  body.pnav-hidden aside.pnav{padding:24px 9px}
+  body.pnav-hidden aside.pnav > :not(.phead),body.pnav-hidden .pnav .home{display:none}
 }
 @media (max-width:1279px){
   aside.pnav{position:fixed;left:0;top:56px;bottom:0;height:auto;width:280px;z-index:30;transform:translateX(-102%);transition:transform .2s ease;box-shadow:0 10px 30px rgba(0,0,0,.25)}
@@ -50,7 +55,7 @@ aside.pnav{position:sticky;top:56px;height:calc(100vh - 56px);overflow:auto;padd
   aside.className = 'pnav';
   aside.id = 'pnav';
   aside.setAttribute('aria-label', 'All problems');
-  let html = '<a class="home" href="../index.html">← All walkthroughs</a>';
+  let html = '<div class="phead"><a class="home" href="../index.html">← All walkthroughs</a><button class="pcol" type="button"></button></div>';
   (window.LLD_LEVELS || []).forEach(level => {
     const list = P.filter(p => p.level === level);
     if (!list.length) return;
@@ -65,7 +70,7 @@ aside.pnav{position:sticky;top:56px;height:calc(100vh - 56px);overflow:auto;padd
   backdrop.className = 'pnav-backdrop';
   document.body.appendChild(backdrop);
 
-  // toggle: collapse the column on wide screens, open a drawer on narrow ones
+  // ☰ in the top bar opens the drawer on narrow screens (hidden on wide ones)
   const wide = matchMedia('(min-width:1280px)');
   try { if (localStorage.getItem('lld-pnav') === 'hidden') document.body.classList.add('pnav-hidden'); } catch (e) {}
   const btn = document.createElement('button');
@@ -74,14 +79,26 @@ aside.pnav{position:sticky;top:56px;height:calc(100vh - 56px);overflow:auto;padd
   btn.setAttribute('aria-controls', 'pnav');
   btn.innerHTML = '☰ <span>Problems</span>';
   bar.prepend(btn);
-  btn.addEventListener('click', () => {
+  // the ‹ / › button inside the nav collapses it on wide screens and closes the drawer on narrow ones
+  const col = aside.querySelector('.pcol');
+  const syncCol = () => {
+    const hidden = wide.matches && document.body.classList.contains('pnav-hidden');
+    col.textContent = hidden ? '›' : '‹';
+    col.title = hidden ? 'Show problems' : (wide.matches ? 'Hide problems' : 'Close');
+    col.setAttribute('aria-label', col.title);
+  };
+  col.addEventListener('click', () => {
     if (wide.matches) {
       const hidden = document.body.classList.toggle('pnav-hidden');
       try { localStorage.setItem('lld-pnav', hidden ? 'hidden' : 'shown'); } catch (e) {}
     } else {
-      document.body.classList.toggle('pnav-open');
+      document.body.classList.remove('pnav-open');
     }
+    syncCol();
   });
+  wide.addEventListener('change', syncCol);
+  syncCol();
+  btn.addEventListener('click', () => document.body.classList.toggle('pnav-open'));
   backdrop.addEventListener('click', () => document.body.classList.remove('pnav-open'));
   document.addEventListener('keydown', e => { if (e.key === 'Escape') document.body.classList.remove('pnav-open'); });
 
