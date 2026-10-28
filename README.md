@@ -8,15 +8,15 @@ Each notes page has requirements, core entities, class and flow diagrams, workin
 
 | # | Problem | Difficulty | Code | Notes | Video |
 |---|---------|------------|------|-------|-------|
-| 1 | Snakes and Ladders | Easy | [code](src/main/java/org/nailyourinterview/lld/snakes_and_ladder) | [notes](https://htmlpreview.github.io/?https://github.com/harikrishna8121999/java-low-level-design/blob/main/notes/snake-and-ladder.html) | [watch](https://youtu.be/L7hvkK188Ek) |
-| 2 | Parking Lot | Medium | [code](src/main/java/org/nailyourinterview/lld/parking_lot) | [notes](https://htmlpreview.github.io/?https://github.com/harikrishna8121999/java-low-level-design/blob/main/notes/parking-lot.html) | [watch](https://youtu.be/kzfrbkDcYjA) |
-| 3 | Logger | Medium | [code](src/main/java/org/nailyourinterview/lld/logger) | [notes](https://htmlpreview.github.io/?https://github.com/harikrishna8121999/java-low-level-design/blob/main/notes/logging-system.html) | [watch](https://youtu.be/hOzH7ecc8vg) |
-| 4 | Car Rental System | Medium | [code](src/main/java/org/nailyourinterview/lld/car_rental) | [notes](https://htmlpreview.github.io/?https://github.com/harikrishna8121999/java-low-level-design/blob/main/notes/car-rental.html) | [watch](https://youtu.be/H68JE5U7Qvw) |
-| 5 | ATM | Medium | [code](src/main/java/org/nailyourinterview/lld/atm) | [notes](https://htmlpreview.github.io/?https://github.com/harikrishna8121999/java-low-level-design/blob/main/notes/atm.html) | [watch](https://youtu.be/GSuaqBR0Wpc) |
-| 6 | Vending Machine | Medium | [code](src/main/java/org/nailyourinterview/lld/vending_machine) | [notes](https://htmlpreview.github.io/?https://github.com/harikrishna8121999/java-low-level-design/blob/main/notes/vending-machine.html) | |
-| 7 | Elevator System | Medium | [code](src/main/java/org/nailyourinterview/lld/elevator) | [notes](https://htmlpreview.github.io/?https://github.com/harikrishna8121999/java-low-level-design/blob/main/notes/elevator-system.html) | |
-| 8 | Inventory Management System | Medium | [code](src/main/java/org/nailyourinterview/lld/inventory_management) | [notes](https://htmlpreview.github.io/?https://github.com/harikrishna8121999/java-low-level-design/blob/main/notes/inventory-management.html) | |
-| 9 | Chess | Medium–Hard | [code](src/main/java/org/nailyourinterview/lld/chess) | [notes](https://htmlpreview.github.io/?https://github.com/harikrishna8121999/java-low-level-design/blob/main/notes/chess.html) | |
+| 1 | Snakes and Ladders | Easy | [code](src/main/java/org/nailyourinterview/lld/snakes_and_ladder) | [notes](https://harikrishna8121999.github.io/java-low-level-design/notes/snake-and-ladder.html) | [watch](https://youtu.be/L7hvkK188Ek) |
+| 2 | Parking Lot | Medium | [code](src/main/java/org/nailyourinterview/lld/parking_lot) | [notes](https://harikrishna8121999.github.io/java-low-level-design/notes/parking-lot.html) | [watch](https://youtu.be/kzfrbkDcYjA) |
+| 3 | Logger | Medium | [code](src/main/java/org/nailyourinterview/lld/logger) | [notes](https://harikrishna8121999.github.io/java-low-level-design/notes/logging-system.html) | [watch](https://youtu.be/hOzH7ecc8vg) |
+| 4 | Car Rental System | Medium | [code](src/main/java/org/nailyourinterview/lld/car_rental) | [notes](https://harikrishna8121999.github.io/java-low-level-design/notes/car-rental.html) | [watch](https://youtu.be/H68JE5U7Qvw) |
+| 5 | ATM | Medium | [code](src/main/java/org/nailyourinterview/lld/atm) | [notes](https://harikrishna8121999.github.io/java-low-level-design/notes/atm.html) | [watch](https://youtu.be/GSuaqBR0Wpc) |
+| 6 | Vending Machine | Medium | [code](src/main/java/org/nailyourinterview/lld/vending_machine) | [notes](https://harikrishna8121999.github.io/java-low-level-design/notes/vending-machine.html) | |
+| 7 | Elevator System | Medium | [code](src/main/java/org/nailyourinterview/lld/elevator) | [notes](https://harikrishna8121999.github.io/java-low-level-design/notes/elevator-system.html) | |
+| 8 | Inventory Management System | Medium | [code](src/main/java/org/nailyourinterview/lld/inventory_management) | [notes](https://harikrishna8121999.github.io/java-low-level-design/notes/inventory-management.html) | |
+| 9 | Chess | Medium–Hard | [code](src/main/java/org/nailyourinterview/lld/chess) | [notes](https://harikrishna8121999.github.io/java-low-level-design/notes/chess.html) | |
 | 10 | Splitwise | Hard | [code](src/main/java/org/nailyourinterview/lld/splitwise) | | [watch](https://youtu.be/2QvlBrhLLHc) |
 | 11 | Doctor's Appointment | Medium | [code](src/main/java/org/nailyourinterview/lld/doctors_appointment) | | [watch](https://youtu.be/eh4e1VJ05Gc) |
 | 12 | Customer Issue Resolution | Medium | [code](src/main/java/org/nailyourinterview/lld/customer_support) | | [watch](https://youtu.be/vHwOyuaEtIk) |
