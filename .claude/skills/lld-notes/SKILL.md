@@ -6,19 +6,19 @@ description: Build a one-page HTML revision guide for a low-level design (LLD) p
 # LLD revision notes page
 
 Make one self-contained HTML file per LLD problem. The finished Snake and Ladder page is the template:
-`template/reference-snake-and-ladder.html` (in this skill's folder; in the fork the live copy is `notes/snake-and-ladder.html`).
+`template/reference-snake-and-ladder.html` (in this skill's folder; in the fork the live copy is `walkthroughs/snake-and-ladder.html`).
 
 **Always start from a copy of the template.** It already has the layout, light/dark theme, table of contents with scrollspy, diagram engine (Miro-style SVG with PNG export and full screen), code explorer, flip cards and all CSS. Change the content, not the machinery.
 
 ## Workflow
 
 1. **Read the code first.** Find the problem's package in the repo (for example `src/main/java/.../<problem>/`). Read every file. The page must describe the real code, not a generic design.
-2. **Copy the template** to `<repo>/notes/<problem-slug>.html`.
+2. **Copy the template** to `<repo>/walkthroughs/<problem-slug>.html`.
 3. **Rewrite each section** (order below). Keep the HTML structure and class names. Replace the text, tables, diagram data and code blocks.
 4. **Diagrams.** The SVGs are drawn by JS from data arrays (`boxes`, `E` edges, `N` nodes, `sticky(...)`). Change the coordinates and labels. Check that boxes, labels and lines do not overlap.
 5. **Code explorer.** Compile and run the real entry point outside the repo (scratchpad), save stdout, then run:
    ```bash
-   python <skill-dir>/scripts/refresh_explorer.py notes/<slug>.html <package_dir> \
+   python <skill-dir>/scripts/refresh_explorer.py walkthroughs/<slug>.html <package_dir> \
      --output run.txt --answers "v1,v2,..." --main Main.java
    ```
    Java + Lombok: `javac -cp lombok.jar -processorpath lombok.jar -d <scratch>/build $(find <pkg> -name '*.java')`, then `java -cp <scratch>/build <main class> < input.txt`. Lombok jars are under `~/.m2/repository/org/projectlombok/lombok/`. Never write build output into the repo. Update the GitHub link in the section intro.
