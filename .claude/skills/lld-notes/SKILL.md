@@ -14,17 +14,18 @@ Make one self-contained HTML file per LLD problem. The finished Snake and Ladder
 
 1. **Read the code first.** Find the problem's package in the repo (for example `src/main/java/.../<problem>/`). Read every file. The page must describe the real code, not a generic design.
 2. **Copy the template** to `<repo>/walkthroughs/<problem-slug>.html`.
-3. **Rewrite each section** (order below). Keep the HTML structure and class names. Replace the text, tables, diagram data and code blocks.
-4. **Diagrams.** The SVGs are drawn by JS from data arrays (`boxes`, `E` edges, `N` nodes, `sticky(...)`). Change the coordinates and labels. Check that boxes, labels and lines do not overlap.
-5. **Code explorer.** Compile and run the real entry point outside the repo (scratchpad), save stdout, then run:
+3. **Site nav.** Set the brand emoji and the crumb level link (`../index.html?level=<easy|medium|medium-hard|hard>`). Keep the `problems.js` and `site.js` script tags before `</body>`. Add one entry to `walkthroughs/problems.js` (slug, title, icon, level, read, pkg, blurb, patterns) in difficulty order; remove it from `LLD_CODE_ONLY` if listed. The home page (`index.html`), the left "All problems" nav and prev / next links all read that list. Add the row to the README table too.
+4. **Rewrite each section** (order below). Keep the HTML structure and class names. Replace the text, tables, diagram data and code blocks.
+5. **Diagrams.** The SVGs are drawn by JS from data arrays (`boxes`, `E` edges, `N` nodes, `sticky(...)`). Change the coordinates and labels. Check that boxes, labels and lines do not overlap.
+6. **Code explorer.** Compile and run the real entry point outside the repo (scratchpad), save stdout, then run:
    ```bash
    python <skill-dir>/scripts/refresh_explorer.py walkthroughs/<slug>.html <package_dir> \
      --output run.txt --answers "v1,v2,..." --main Main.java
    ```
    Java + Lombok: `javac -cp lombok.jar -processorpath lombok.jar -d <scratch>/build $(find <pkg> -name '*.java')`, then `java -cp <scratch>/build <main class> < input.txt`. Lombok jars are under `~/.m2/repository/org/projectlombok/lombok/`. Never write build output into the repo. Update the GitHub link in the section intro.
-6. **Verify by screenshot.** Use headless Chrome. To view one section, make a temporary copy that hides the others:
+7. **Verify by screenshot.** Use headless Chrome. To view one section, make a temporary copy that hides the others:
    `sed 's#</head>#<style>main section:not(\#<id>){display:none}</style></head>#' page.html > _tmp.html`, take the screenshot, then delete `_tmp.html`. Check every diagram and the explorer. Fix overlaps, clipped text and broken grids.
-7. Do **not** change the upstream problem code unless the user asks. Suggest improvements in the page instead.
+8. Do **not** change the upstream problem code unless the user asks. Suggest improvements in the page instead.
 
 ## Sections (in this order)
 

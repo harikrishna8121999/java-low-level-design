@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Java LLD Walkthroughs</title>
+<meta name="description" content="Low-level design (LLD) interview problems in Java, with interactive walkthroughs: diagrams, demos and runnable code.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#ffffff; --bg-soft:#f7f8fa; --bg-card:#ffffff; --text:#1f2328; --muted:#5b6471; --border:#e4e7ec;
+  --accent:#5b5bd6; --accent-soft:#eef0ff; --accent-text:#4343b8;
+  --ok:#1a7f37; --ok-soft:#e8f6ec; --warn:#9a6700; --warn-soft:#fff6dd; --bad:#cf222e; --bad-soft:#fdecee;
+  --shadow:0 1px 2px rgba(16,24,40,.05),0 1px 3px rgba(16,24,40,.08);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f1115; --bg-soft:#151920; --bg-card:#171b22; --text:#e6e8eb; --muted:#9aa4b2; --border:#2a3039;
+    --accent:#8e8ff7; --accent-soft:#20223f; --accent-text:#b4b5ff;
+    --ok:#4ac26b; --ok-soft:#12261a; --warn:#e3b341; --warn-soft:#2a2210; --bad:#ff7b72; --bad-soft:#2d1517;
+    --shadow:0 1px 2px rgba(0,0,0,.4);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0f1115; --bg-soft:#151920; --bg-card:#171b22; --text:#e6e8eb; --muted:#9aa4b2; --border:#2a3039;
+  --accent:#8e8ff7; --accent-soft:#20223f; --accent-text:#b4b5ff;
+  --ok:#4ac26b; --ok-soft:#12261a; --warn:#e3b341; --warn-soft:#2a2210; --bad:#ff7b72; --bad-soft:#2d1517;
+  --shadow:0 1px 2px rgba(0,0,0,.4);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.6 Inter,system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+a{color:var(--accent-text)}
+.topbar{position:sticky;top:0;z-index:20;height:56px;display:flex;align-items:center;gap:12px;padding:0 20px;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--border)}
+.brand{font-weight:700;font-size:15px;color:inherit;text-decoration:none}
+.sp{flex:1}
+.btn{font:inherit;font-size:13px;font-weight:500;border:1px solid var(--border);background:var(--bg-card);color:var(--text);padding:6px 12px;border-radius:8px;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+.btn:hover{border-color:var(--accent);color:var(--accent-text)}
+.wrap{max-width:1160px;margin:0 auto;padding:48px 20px 96px}
+h1{font-size:42px;line-height:1.15;letter-spacing:-.02em;margin:0 0 12px}
+.lead{font-size:18px;color:var(--muted);max-width:720px;margin:0 0 28px}
+.steps{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 36px;padding:0;list-style:none}
+.steps li{font-size:13px;font-weight:500;background:var(--bg-soft);border:1px solid var(--border);border-radius:999px;padding:4px 12px;color:var(--muted)}
+.steps b{color:var(--accent-text);margin-right:4px}
+.tools{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-bottom:20px}
+.search{flex:1 1 260px;font:inherit;font-size:15px;padding:10px 14px;border:1px solid var(--border);border-radius:10px;background:var(--bg-card);color:var(--text)}
+.search:focus{outline:2px solid var(--accent);outline-offset:-1px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{font:inherit;font-size:13.5px;font-weight:600;padding:7px 14px;border-radius:999px;border:1px solid var(--border);background:var(--bg-card);color:var(--muted);cursor:pointer}
+.chip:hover{color:var(--text)}
+.chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+.count{font-size:13.5px;color:var(--muted);margin:0 0 14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px}
+.card{display:flex;flex-direction:column;gap:10px;padding:20px;border:1px solid var(--border);border-radius:14px;background:var(--bg-card);box-shadow:var(--shadow);text-decoration:none;color:var(--text);transition:border-color .15s,transform .15s}
+.card:hover{border-color:var(--accent);transform:translateY(-2px)}
+.card .top{display:flex;align-items:center;gap:12px}
+.card .ic{font-size:26px;width:44px;height:44px;display:grid;place-items:center;border-radius:10px;background:var(--bg-soft);border:1px solid var(--border);flex:none}
+.card h3{margin:0;font-size:18px}
+.card .meta{display:flex;gap:6px;flex-wrap:wrap;margin-top:2px}
+.card p{margin:0;font-size:14.5px;color:var(--muted)}
+.tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:auto}
+.tag{font-size:12px;font-weight:500;padding:2px 8px;border-radius:6px;background:var(--accent-soft);color:var(--accent-text)}
+.pill{font-size:12px;font-weight:600;border-radius:999px;padding:2px 9px;border:1px solid var(--border);background:var(--bg-soft);color:var(--muted)}
+.pill.easy{background:var(--ok-soft);color:var(--ok);border-color:transparent}
+.pill.medium{background:var(--warn-soft);color:var(--warn);border-color:transparent}
+.pill.medium-hard,.pill.hard{background:var(--bad-soft);color:var(--bad);border-color:transparent}
+.empty{display:none;padding:32px;text-align:center;color:var(--muted);border:1px dashed var(--border);border-radius:14px}
+h2{font-size:22px;margin:56px 0 6px}
+.sub{color:var(--muted);margin:0 0 16px;font-size:15px}
+.soon{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px}
+.soon a{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:12px 16px;border:1px solid var(--border);border-radius:10px;background:var(--bg-soft);color:var(--text);text-decoration:none;font-size:14.5px;font-weight:500}
+.soon a:hover{border-color:var(--accent)}
+footer{border-top:1px solid var(--border);padding:24px 20px;text-align:center;font-size:13.5px;color:var(--muted)}
+@media (max-width:640px){h1{font-size:30px}.wrap{padding:32px 16px 72px}.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <a class="brand" href="index.html">🧩 LLD Walkthroughs</a>
+  <div class="sp"></div>
+  <a class="btn" href="https://github.com/harikrishna8121999/java-low-level-design">GitHub</a>
+  <button class="btn" id="themeBtn" type="button" aria-label="Toggle theme">◐ Theme</button>
+</div>
+
+<div class="wrap">
+  <h1>Java Low-Level Design Walkthroughs</h1>
+  <p class="lead">Each walkthrough takes one LLD interview problem through the 5 interview steps. You get diagrams, a live demo, working Java code and a revision cheat sheet.</p>
+  <ol class="steps">
+    <li><b>1</b>Understand</li><li><b>2</b>Requirements</li><li><b>3</b>Entities</li><li><b>4</b>Class diagram + flow</li><li><b>5</b>Working code</li>
+  </ol>
+
+  <div class="tools">
+    <input class="search" id="q" type="search" placeholder="Search problems or patterns, e.g. Strategy" aria-label="Search problems">
+    <div class="chips" id="chips" role="group" aria-label="Filter by difficulty"></div>
+  </div>
+  <p class="count" id="count"></p>
+  <div class="grid" id="grid"></div>
+  <div class="empty" id="empty">No problem matches. Clear the search or pick another level.</div>
+
+  <h2>Code only, walkthrough coming</h2>
+  <p class="sub">These problems have Java code in the repo but no walkthrough yet.</p>
+  <div class="soon" id="soon"></div>
+</div>
+
+<footer>Code and walkthroughs on <a href="https://github.com/harikrishna8121999/java-low-level-design">GitHub</a>. First problems and videos from <a href="https://github.com/shubhkpatel/Low-Level-Design">shubhkpatel/Low-Level-Design</a>.</footer>
+
+<script src="walkthroughs/problems.js"></script>
+<script>
+const root = document.documentElement;
+try { const t = localStorage.getItem('sl-theme'); if (t) root.dataset.theme = t; } catch(e){}
+document.getElementById('themeBtn').addEventListener('click', () => {
+  const dark = root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+  root.dataset.theme = dark ? 'light' : 'dark';
+  try { localStorage.setItem('sl-theme', root.dataset.theme); } catch(e){}
+});
+
+const P = window.LLD_PROBLEMS, $ = id => document.getElementById(id);
+const levels = ['all', ...LLD_LEVELS.filter(l => P.some(p => p.level === l)).map(lldLevelSlug)];
+const label = s => s === 'all' ? 'All' : LLD_LEVELS.find(l => lldLevelSlug(l) === s);
+let level = new URLSearchParams(location.search).get('level');
+if (!levels.includes(level)) level = 'all';
+
+$('grid').innerHTML = P.map(p => `
+  <a class="card" href="walkthroughs/${p.slug}.html" data-level="${lldLevelSlug(p.level)}" data-text="${(p.title + ' ' + p.blurb + ' ' + p.patterns.join(' ')).toLowerCase()}">
+    <div class="top"><span class="ic">${p.icon}</span><div><h3>${p.title}</h3>
+      <div class="meta"><span class="pill ${lldLevelSlug(p.level)}">${p.level}</span><span class="pill">~${p.read} min</span></div></div></div>
+    <p>${p.blurb}</p>
+    <div class="tags">${p.patterns.map(t => `<span class="tag">${t}</span>`).join('')}</div>
+  </a>`).join('');
+$('soon').innerHTML = LLD_CODE_ONLY.map(p => `<a href="${LLD_REPO}${p.pkg}">${p.title}<span class="pill ${lldLevelSlug(p.level)}">${p.level}</span></a>`).join('');
+
+function render(){
+  $('chips').innerHTML = levels.map(l => `<button class="chip" type="button" data-l="${l}" aria-pressed="${l === level}">${label(l)}</button>`).join('');
+  const q = $('q').value.trim().toLowerCase();
+  let n = 0;
+  document.querySelectorAll('.card').forEach(c => {
+    const show = (level === 'all' || c.dataset.level === level) && (!q || c.dataset.text.includes(q));
+    c.style.display = show ? '' : 'none';
+    if (show) n++;
+  });
+  $('count').textContent = `${n} walkthrough${n === 1 ? '' : 's'}`;
+  $('empty').style.display = n ? 'none' : 'block';
+}
+$('chips').addEventListener('click', e => {
+  const b = e.target.closest('.chip'); if (!b) return;
+  level = b.dataset.l;
+  history.replaceState(null, '', level === 'all' ? location.pathname : `?level=${level}`);
+  render();
+});
+$('q').addEventListener('input', render);
+render();
+</script>
+</body>
+</html>
