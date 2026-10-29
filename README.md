@@ -18,12 +18,13 @@ Each walkthrough has requirements, core entities, class and flow diagrams, worki
 | 6 | Vending Machine | Medium | [code](src/main/java/org/nailyourinterview/lld/vending_machine) | [walkthrough](https://harikrishna8121999.github.io/java-low-level-design/walkthroughs/vending-machine.html) | |
 | 7 | Elevator System | Medium | [code](src/main/java/org/nailyourinterview/lld/elevator) | [walkthrough](https://harikrishna8121999.github.io/java-low-level-design/walkthroughs/elevator-system.html) | |
 | 8 | Inventory Management System | Medium | [code](src/main/java/org/nailyourinterview/lld/inventory_management) | [walkthrough](https://harikrishna8121999.github.io/java-low-level-design/walkthroughs/inventory-management.html) | |
-| 9 | Chess | Medium–Hard | [code](src/main/java/org/nailyourinterview/lld/chess) | [walkthrough](https://harikrishna8121999.github.io/java-low-level-design/walkthroughs/chess.html) | |
-| 10 | Splitwise | Hard | [code](src/main/java/org/nailyourinterview/lld/splitwise) | | [watch](https://youtu.be/2QvlBrhLLHc) |
-| 11 | Doctor's Appointment | Medium | [code](src/main/java/org/nailyourinterview/lld/doctors_appointment) | | [watch](https://youtu.be/eh4e1VJ05Gc) |
-| 12 | Customer Issue Resolution | Medium | [code](src/main/java/org/nailyourinterview/lld/customer_support) | | [watch](https://youtu.be/vHwOyuaEtIk) |
-| 13 | Rate Limiter | Medium | [code](src/main/java/org/nailyourinterview/lld/rate_limiter) | | [watch](https://youtu.be/7y0KWxaUn-E) |
-| 14 | HashMap | Medium | [code](src/main/java/org/nailyourinterview/lld/hashmap) | | |
+| 9 | File System | Medium | [code](src/main/java/org/nailyourinterview/lld/file_system) | [walkthrough](https://harikrishna8121999.github.io/java-low-level-design/walkthroughs/file-system.html) | |
+| 10 | Chess | Medium–Hard | [code](src/main/java/org/nailyourinterview/lld/chess) | [walkthrough](https://harikrishna8121999.github.io/java-low-level-design/walkthroughs/chess.html) | |
+| 11 | Splitwise | Hard | [code](src/main/java/org/nailyourinterview/lld/splitwise) | [walkthrough](https://harikrishna8121999.github.io/java-low-level-design/walkthroughs/splitwise.html) | [watch](https://youtu.be/2QvlBrhLLHc) |
+| 12 | Doctor's Appointment | Medium | [code](src/main/java/org/nailyourinterview/lld/doctors_appointment) | | [watch](https://youtu.be/eh4e1VJ05Gc) |
+| 13 | Customer Issue Resolution | Medium | [code](src/main/java/org/nailyourinterview/lld/customer_support) | | [watch](https://youtu.be/vHwOyuaEtIk) |
+| 14 | Rate Limiter | Medium | [code](src/main/java/org/nailyourinterview/lld/rate_limiter) | | [watch](https://youtu.be/7y0KWxaUn-E) |
+| 15 | HashMap | Medium | [code](src/main/java/org/nailyourinterview/lld/hashmap) | | |
 
 To read a walkthrough offline, open the file in `walkthroughs/` in a browser.
 

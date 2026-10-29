@@ -1,0 +1,1656 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Splitwise LLD</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#ffffff; --bg-soft:#f7f8fa; --bg-card:#ffffff; --text:#1f2328; --muted:#5b6471; --border:#e4e7ec;
+  --accent:#5b5bd6; --accent-soft:#eef0ff; --accent-text:#4343b8;
+  --code-bg:#f6f8fa; --code-text:#24292f;
+  --ok:#1a7f37; --ok-soft:#e8f6ec; --bad:#cf222e; --bad-soft:#fdecee;
+  --warn:#9a6700; --warn-soft:#fff6dd; --info-soft:#eaf3ff; --info:#0b5cad;
+  --tok-kw:#cf222e; --tok-str:#0a3069; --tok-fn:#8250df; --tok-com:#6e7781; --tok-num:#0550ae; --tok-cls:#953800; --tok-ann:#116329;
+  --shadow:0 1px 2px rgba(16,24,40,.05),0 1px 3px rgba(16,24,40,.08);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f1115; --bg-soft:#151920; --bg-card:#171b22; --text:#e6e8eb; --muted:#9aa4b2; --border:#2a3039;
+    --accent:#8e8ff7; --accent-soft:#20223f; --accent-text:#b4b5ff;
+    --code-bg:#12161c; --code-text:#d6dbe1;
+    --ok:#4ac26b; --ok-soft:#12261a; --bad:#ff7b72; --bad-soft:#2d1517;
+    --warn:#e3b341; --warn-soft:#2a2210; --info-soft:#0f2136; --info:#79b8ff;
+    --tok-kw:#ff7b72; --tok-str:#a5d6ff; --tok-fn:#d2a8ff; --tok-com:#8b949e; --tok-num:#79c0ff; --tok-cls:#ffa657; --tok-ann:#7ee787;
+    --shadow:0 1px 2px rgba(0,0,0,.4);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0f1115; --bg-soft:#151920; --bg-card:#171b22; --text:#e6e8eb; --muted:#9aa4b2; --border:#2a3039;
+  --accent:#8e8ff7; --accent-soft:#20223f; --accent-text:#b4b5ff;
+  --code-bg:#12161c; --code-text:#d6dbe1;
+  --ok:#4ac26b; --ok-soft:#12261a; --bad:#ff7b72; --bad-soft:#2d1517;
+  --warn:#e3b341; --warn-soft:#2a2210; --info-soft:#0f2136; --info:#79b8ff;
+  --tok-kw:#ff7b72; --tok-str:#a5d6ff; --tok-fn:#d2a8ff; --tok-com:#8b949e; --tok-num:#79c0ff; --tok-cls:#ffa657; --tok-ann:#7ee787;
+  --shadow:0 1px 2px rgba(0,0,0,.4);
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:72px}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.7 Inter,system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+a{color:var(--accent-text)}
+code,pre,.mono{font-family:"JetBrains Mono",Consolas,ui-monospace,monospace;font-variant-ligatures:none}
+:not(pre)>code{background:var(--code-bg);border:1px solid var(--border);padding:.08em .38em;border-radius:5px;font-size:.86em}
+
+/* top bar */
+.topbar{position:sticky;top:0;z-index:20;height:56px;display:flex;align-items:center;gap:12px;padding:0 20px;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--border)}
+.topbar .brand{font-weight:700;font-size:15px;display:flex;align-items:center;gap:8px}
+.topbar .crumb{color:var(--muted);font-size:14px}
+.topbar .sp{flex:1}
+.btn{font:inherit;font-size:13px;font-weight:500;border:1px solid var(--border);background:var(--bg-card);color:var(--text);padding:6px 12px;border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.btn:hover{border-color:var(--accent);color:var(--accent-text)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.primary:hover{filter:brightness(1.08);color:#fff}
+.progress{position:fixed;top:56px;left:0;height:2px;background:var(--accent);width:0;z-index:21}
+
+/* layout */
+.layout{display:grid;grid-template-columns:250px minmax(0,1fr);max-width:1440px;margin:0 auto}
+aside.toc{position:sticky;top:56px;height:calc(100vh - 56px);overflow:auto;padding:28px 12px 28px 20px;border-right:1px solid var(--border)}
+.toc h4{margin:0 0 10px 10px;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.toc a{display:block;padding:6px 10px;border-radius:7px;font-size:14px;color:var(--muted);text-decoration:none;line-height:1.35}
+.toc a:hover{color:var(--text);background:var(--bg-soft)}
+.toc a.active{color:var(--accent-text);background:var(--accent-soft);font-weight:600}
+.toc .num{display:inline-block;width:22px;color:inherit;opacity:.7;font-variant-numeric:tabular-nums}
+main{padding:40px 48px 120px;min-width:0}
+main section{margin-bottom:64px}
+.prose{max-width:800px}
+h1{font-size:40px;line-height:1.15;letter-spacing:-.02em;margin:0 0 14px;font-weight:800}
+h2{font-size:28px;letter-spacing:-.01em;margin:0 0 16px;padding-top:8px;font-weight:750;line-height:1.25}
+h3{font-size:20px;margin:32px 0 10px;font-weight:700}
+h4{font-size:16px;margin:22px 0 6px}
+p{margin:0 0 14px}
+ul,ol{margin:0 0 14px;padding-left:22px}
+li{margin:4px 0}
+.meta{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 22px}
+.pill{font-size:12.5px;font-weight:600;border-radius:999px;padding:3px 10px;border:1px solid var(--border);background:var(--bg-soft);color:var(--muted)}
+.pill.easy{background:var(--ok-soft);color:var(--ok);border-color:transparent}
+.lead{font-size:18px;color:var(--muted)}
+.secnum{color:var(--accent);margin-right:8px}
+
+/* callouts */
+.callout{border:1px solid var(--border);border-left:4px solid var(--accent);background:var(--accent-soft);border-radius:10px;padding:14px 16px;margin:18px 0}
+.callout.tip{border-left-color:var(--ok);background:var(--ok-soft)}
+.callout.warn{border-left-color:var(--warn);background:var(--warn-soft)}
+.callout.info{border-left-color:var(--info);background:var(--info-soft)}
+.callout b.t{display:block;margin-bottom:4px}
+.callout p:last-child,.callout ul:last-child{margin-bottom:0}
+
+/* chat Q&A */
+.chat{display:flex;flex-direction:column;gap:10px;margin:18px 0 22px}
+.msg{display:flex;gap:10px;align-items:flex-start;max-width:760px}
+.msg .av{flex:none;width:32px;height:32px;border-radius:50%;display:grid;place-items:center;font-size:13px;font-weight:700;color:#fff}
+.msg.c .av{background:#5b5bd6}.msg.i .av{background:#e8590c}
+.msg .bub{border:1px solid var(--border);background:var(--bg-card);border-radius:12px;padding:9px 14px;box-shadow:var(--shadow)}
+.msg.i .bub{background:var(--bg-soft)}
+.msg .who{font-size:12px;font-weight:700;color:var(--muted);display:block;margin-bottom:1px}
+
+/* cards & grids */
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:16px 0}
+.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:16px 0}
+.card{border:1px solid var(--border);border-radius:12px;padding:14px 16px;background:var(--bg-card);box-shadow:var(--shadow)}
+.card h4{margin:0 0 6px;display:flex;align-items:center;gap:8px}
+.card p{margin:0;color:var(--muted);font-size:14.5px}
+.card .tag{font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;text-transform:uppercase;letter-spacing:.04em}
+.tag.used{background:var(--ok-soft);color:var(--ok)}
+.tag.could{background:var(--info-soft);color:var(--info)}
+.tag.avoid{background:var(--bad-soft);color:var(--bad)}
+
+table{border-collapse:collapse;width:100%;font-size:14.5px;margin:14px 0 20px}
+.tablewrap{overflow-x:auto;border:1px solid var(--border);border-radius:12px;margin:14px 0 20px}
+.tablewrap table{margin:0}
+th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--border);vertical-align:top}
+th{background:var(--bg-soft);font-size:13px;color:var(--muted);font-weight:600}
+tr:last-child td{border-bottom:0}
+
+/* nouns highlight */
+.noun{background:#fff1a8;color:#3d3200;border-radius:4px;padding:0 3px;font-weight:600}
+:root[data-theme="dark"] .noun{background:#4a3f0c;color:#ffe680}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .noun{background:#4a3f0c;color:#ffe680}}
+
+/* diagram frame */
+.figure{margin:20px 0 28px;border:1px solid var(--border);border-radius:14px;overflow:hidden;background:var(--bg-card);box-shadow:var(--shadow)}
+.figure .fhead{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--border);background:var(--bg-soft);flex-wrap:wrap}
+.figure .fhead b{font-size:14px}
+.figure .fhead .sp{flex:1}
+.figure .canvas{background:#fbfbfc;overflow:auto}
+.figure .canvas svg{display:block;width:100%;height:auto;min-width:860px;margin:0 auto}
+#flowSvg{max-width:900px}
+.figure:fullscreen{border-radius:0;display:flex;flex-direction:column}
+.figure:fullscreen .canvas{flex:1}
+.figure:fullscreen .canvas svg{height:100%;min-width:0}
+.figure .cap{padding:10px 14px;font-size:13.5px;color:var(--muted);border-top:1px solid var(--border)}
+
+/* code */
+.code{position:relative;margin:14px 0 20px;border:1px solid var(--border);border-radius:12px;background:var(--code-bg);overflow:hidden}
+.code .chead{display:flex;align-items:center;justify-content:space-between;padding:7px 12px;border-bottom:1px solid var(--border);font-size:12.5px;color:var(--muted);font-family:"JetBrains Mono",Consolas,monospace}
+.code .copy{font-size:12px;padding:3px 9px}
+pre{font-variant-ligatures:none;margin:0;padding:14px 16px;overflow:auto;font-size:13.3px;line-height:1.6;color:var(--code-text);tab-size:4}
+pre code{background:none;border:0;padding:0;font-size:inherit}
+.token.keyword,.token.boolean{color:var(--tok-kw)}
+.token.string,.token.char{color:var(--tok-str)}
+.token.function{color:var(--tok-fn)}
+.token.comment{color:var(--tok-com);font-style:italic}
+.token.number{color:var(--tok-num)}
+.token.class-name{color:var(--tok-cls)}
+.token.annotation,.token.punctuation.annotation{color:var(--tok-ann)}
+.token.operator{color:inherit}
+.why{font-size:14.5px;color:var(--muted);border-left:3px solid var(--border);padding:2px 0 2px 12px;margin:-6px 0 22px}
+
+/* serpentine mini grid */
+.serp{display:grid;grid-template-columns:repeat(4,44px);gap:4px;margin:10px 0}
+.serp div{height:44px;border-radius:8px;display:grid;place-items:center;font-weight:700;font-size:14px;background:var(--bg-soft);border:1px solid var(--border)}
+.serp div.r{background:var(--accent-soft);color:var(--accent-text)}
+.serpwrap{display:flex;gap:28px;align-items:center;flex-wrap:wrap;margin:10px 0 18px}
+
+/* simulator */
+.sim{display:grid;grid-template-columns:minmax(0,520px) minmax(0,1fr);gap:22px;margin:16px 0 22px;align-items:start}
+.board{position:relative;aspect-ratio:1;width:100%;display:grid;grid-template-columns:repeat(10,1fr);border:2px solid var(--border);border-radius:12px;overflow:hidden;user-select:none}
+.board .cell{position:relative;font-size:10px;font-weight:600;color:#56606c;padding:2px 4px;border-right:1px solid rgba(0,0,0,.04);border-bottom:1px solid rgba(0,0,0,.04)}
+.board .cell.a{background:#f4f1ff}.board .cell.b{background:#ffffff}
+.board .cell.last{background:#fff4c2}
+.board .cell.flash{outline:3px solid #f59f00;outline-offset:-3px}
+.board svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.token-p{position:absolute;width:5.2%;aspect-ratio:1;border-radius:50%;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.35);transform:translate(-50%,-50%);transition:left .45s ease,top .45s ease;z-index:3;display:grid;place-items:center;color:#fff;font-size:9px;font-weight:800}
+.simside{display:flex;flex-direction:column;gap:12px}
+.simctl{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.die{font-size:44px;line-height:1;width:58px;height:58px;display:grid;place-items:center;border:1px solid var(--border);border-radius:12px;background:var(--bg-card)}
+.die.spin{animation:spin .35s ease}
+@keyframes spin{from{transform:rotate(-180deg) scale(.6)}to{transform:none}}
+.queue{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:13px}
+.queue .q{padding:3px 10px;border-radius:999px;color:#fff;font-weight:700;font-size:12px}
+.queue .q.front{outline:2px solid var(--text);outline-offset:1px}
+.log{list-style:none;margin:0;padding:0;max-height:300px;overflow:auto;border:1px solid var(--border);border-radius:10px;background:var(--bg-soft);font-size:13px}
+.log li{padding:7px 11px;border-bottom:1px solid var(--border);margin:0}
+.log li:first-child{background:var(--bg-card)}
+.log .call{font-family:"JetBrains Mono",Consolas,monospace;font-size:11.5px;color:var(--muted);display:block}
+select{font:inherit;font-size:13px;padding:5px 8px;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);color:var(--text)}
+
+/* exercises */
+details{border:1px solid var(--border);border-radius:10px;margin:10px 0;background:var(--bg-card)}
+details>summary{cursor:pointer;padding:10px 14px;font-weight:600;font-size:14.5px;list-style:none;display:flex;gap:8px;align-items:center}
+details>summary::-webkit-details-marker{display:none}
+details>summary::before{content:"▸";color:var(--accent);transition:transform .15s}
+details[open]>summary::before{transform:rotate(90deg)}
+details>.body{padding:0 14px 12px}
+.ex{border:1px solid var(--border);border-radius:14px;padding:16px 18px;margin:16px 0;background:var(--bg-card);box-shadow:var(--shadow)}
+.ex h4{margin:0 0 6px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.lvl{font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px}
+.lvl.e{background:var(--ok-soft);color:var(--ok)}.lvl.m{background:var(--warn-soft);color:var(--warn)}.lvl.h{background:var(--bad-soft);color:var(--bad)}
+
+/* quiz */
+.quiz{counter-reset:q}
+.qbox{border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin:12px 0;background:var(--bg-card)}
+.qbox .qq{font-weight:600;margin-bottom:8px}
+.qbox .opts{display:grid;gap:6px}
+.qbox button.opt{font:inherit;font-size:14.5px;text-align:left;padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg-soft);color:var(--text);cursor:pointer}
+.qbox button.opt:hover:not(:disabled){border-color:var(--accent)}
+.qbox button.opt.right{background:var(--ok-soft);border-color:var(--ok);color:var(--ok);font-weight:600}
+.qbox button.opt.wrong{background:var(--bad-soft);border-color:var(--bad);color:var(--bad)}
+.qbox .exp{display:none;margin-top:8px;font-size:14px;color:var(--muted)}
+.qbox.done .exp{display:block}
+.score{font-weight:700;color:var(--accent-text)}
+
+/* checklist */
+.check{list-style:none;padding:0}
+.check li{display:flex;gap:10px;align-items:flex-start;padding:6px 0;border-bottom:1px dashed var(--border)}
+.check input{margin-top:6px;accent-color:var(--accent);width:16px;height:16px}
+
+/* cheat sheet */
+.tldr{font-size:18px;line-height:1.6;border-radius:14px;padding:18px 22px;background:var(--accent-soft);border:1px solid var(--border);margin:6px 0 30px}
+.tldr-k{display:block;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--accent-text);margin-bottom:4px}
+.tl{margin:0 0 10px}
+.tl-step{display:grid;grid-template-columns:40px minmax(0,1fr);gap:16px;position:relative;padding-bottom:26px}
+.tl-step::before{content:"";position:absolute;left:19px;top:42px;bottom:2px;width:2px;background:var(--border)}
+.tl-step:last-child::before{display:none}
+.tl-dot{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;font-weight:800;color:#1f2328;border:2px solid}
+.tl-body{min-width:0}
+.tl-body h4{margin:7px 0 8px;font-size:17px}
+.say{margin:0;font-size:15.5px}
+.bucket{display:grid;grid-template-columns:110px minmax(0,1fr);gap:8px 14px;font-size:15px}
+.bucket .bk{font-weight:700;color:var(--accent-text)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font-size:14px;font-weight:600;padding:4px 12px;border-radius:999px;background:var(--bg-soft);border:1px solid var(--border)}
+.chip.hl{background:var(--accent-soft);color:var(--accent-text)}
+pre.tree{font-variant-ligatures:none;margin:0;padding:14px 16px;border-radius:12px;background:var(--code-bg);border:1px solid var(--border);font-size:13.5px;line-height:1.6;overflow:auto}
+.tree .tc{color:var(--tok-com)}
+#revSvg{min-width:0 !important}
+table.traps td:first-child{font-weight:600;width:45%}
+.term{display:block;font-size:12.5px;color:var(--muted)}
+.warm{list-style:none;counter-reset:w;padding:0;margin:8px 0 0}
+.warm li{counter-increment:w;display:grid;grid-template-columns:34px minmax(0,1fr) auto;gap:12px;align-items:center;padding:12px 14px;margin:0 0 8px;border:1px solid var(--border);border-radius:12px;background:var(--bg-card)}
+.warm li::before{content:counter(w);width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-weight:800;background:var(--accent-soft);color:var(--accent-text)}
+.warm li a{font-size:13px;font-weight:600;text-decoration:none;white-space:nowrap}
+td b{white-space:nowrap}
+.pat{display:grid;gap:8px;margin:10px 0 20px;font-size:15px}
+.pat .tag{display:inline-block;width:64px;text-align:center;margin-right:10px;font-size:11px;font-weight:700;padding:2px 0;border-radius:999px;text-transform:uppercase}
+.fc-bar{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.fc-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.fc{font:inherit;text-align:left;cursor:pointer;min-height:112px;padding:14px 16px;border-radius:12px;border:1px solid var(--border);background:var(--bg-card);color:var(--text);box-shadow:var(--shadow);display:flex;flex-direction:column;gap:8px;transition:border-color .15s}
+.fc:hover{border-color:var(--accent)}
+.fc .q{font-weight:600;font-size:15px}
+.fc .q::after{content:"tap to reveal";display:block;margin-top:6px;font-weight:500;font-size:12px;color:var(--muted)}
+.fc .a{display:none;font-size:14.5px;color:var(--text);border-top:1px dashed var(--border);padding-top:8px}
+.fc.open{border-color:var(--ok);background:var(--ok-soft)}
+.fc.open .q::after{display:none}
+.fc.open .a{display:block}
+footer{color:var(--muted);font-size:13px;border-top:1px solid var(--border);padding-top:16px;margin-top:40px}
+
+/* code explorer */
+.ide{--i-bg:#1e1f22;--i-side:#191a1d;--i-bd:#2e3036;--i-tx:#d5d8dd;--i-mu:#868a91;--i-hl:#2b2d33;
+  display:grid;grid-template-columns:240px minmax(0,1fr);border:1px solid var(--i-bd);border-radius:14px;overflow:hidden;background:var(--i-bg);color:var(--i-tx);margin:18px 0 24px;box-shadow:0 8px 24px rgba(0,0,0,.18)}
+.ide:fullscreen{border-radius:0;height:100vh}
+.ide-side{background:var(--i-side);border-right:1px solid var(--i-bd);padding:14px 10px;min-width:0}
+.ide-lang{border:1px solid var(--i-bd);border-radius:9px;padding:8px 12px;font-weight:700;font-size:14px;margin-bottom:14px}
+.ide-files{font-weight:700;font-size:14px;padding:4px 6px 10px;border-bottom:1px solid var(--i-bd);margin-bottom:8px}
+.ide-cnt{font-size:11px;background:var(--i-hl);border-radius:999px;padding:1px 8px;margin-left:4px;color:var(--i-mu)}
+.ide-tree{font-size:13.5px}
+.ide-row{display:flex;align-items:center;gap:6px;width:100%;font:inherit;font-size:13.5px;color:var(--i-tx);background:none;border:0;border-radius:7px;padding:5px 8px;cursor:pointer;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ide-row:hover{background:var(--i-hl)}
+.ide-row.on{background:#1f3a2c;color:#5fd38d}
+.ide-row .car{display:inline-block;width:10px;color:var(--i-mu);transition:transform .15s}
+.ide-row.open .car{transform:rotate(90deg)}
+.ide-row .mb{margin-left:auto;font-size:10px;font-weight:800;color:#5fd38d;background:#1f3a2c;border:1px solid #2f5a42;border-radius:5px;padding:0 5px}
+.ide-kids{padding-left:14px}
+.ide-kids[hidden]{display:none}
+.ide-main{display:flex;flex-direction:column;min-width:0}
+.ide-head{display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--i-bd)}
+.ide-head b{font-size:15px}
+.ide-fico{color:#5fd38d;font-family:"JetBrains Mono",Consolas,monospace;font-size:12px;font-weight:700}
+.ide-badge{font-size:10px;font-weight:800;color:#5fd38d;background:#1f3a2c;border:1px solid #2f5a42;border-radius:5px;padding:1px 6px}
+.ide-head .sp,.ide-foot .sp{flex:1}
+.ide-ib{background:none;border:1px solid transparent;color:var(--i-mu);font-size:16px;width:32px;height:30px;border-radius:7px;cursor:pointer}
+.ide-ib:hover{border-color:var(--i-bd);color:var(--i-tx)}
+.ide-tabs{display:flex;overflow-x:auto;background:var(--i-side);border-bottom:1px solid var(--i-bd);min-height:36px}
+.ide-tab{display:flex;align-items:center;gap:8px;font:inherit;font-size:13px;color:var(--i-mu);background:none;border:0;border-right:1px solid var(--i-bd);padding:8px 12px;cursor:pointer;white-space:nowrap}
+.ide-tab.on{color:var(--i-tx);background:var(--i-bg);box-shadow:inset 0 2px 0 #5fd38d}
+.ide-tab .x{opacity:.5;font-size:12px}.ide-tab .x:hover{opacity:1}
+.ide-code{display:flex;overflow:auto;height:480px;font-family:"JetBrains Mono",Consolas,monospace;font-size:13.5px;line-height:1.65;font-variant-ligatures:none}
+.ide:fullscreen .ide-code{height:auto;flex:1}
+.ide-gutter{position:sticky;left:0;flex:none;text-align:right;padding:12px 14px 12px 12px;color:#5c6068;background:var(--i-bg);border-right:1px solid var(--i-bd);user-select:none;white-space:pre}
+.ide-code pre{margin:0;padding:12px 18px;overflow:visible;color:var(--i-tx);font-size:inherit;line-height:inherit;flex:1}
+.ide .token.keyword,.ide .token.boolean{color:#cf8e6d}
+.ide .token.string{color:#6aab73}
+.ide .token.function{color:#56a8f5}
+.ide .token.comment{color:#7a7e85}
+.ide .token.number{color:#2aacb8}
+.ide .token.class-name{color:#d5d8dd}
+.ide .token.annotation,.ide .token.punctuation.annotation{color:#b3ae60}
+.ide .token.punctuation,.ide .token.operator{color:#bcbec4}
+.ide-foot{display:flex;align-items:center;gap:8px;padding:10px 14px;border-top:1px solid var(--i-bd)}
+.ide-otab{font:inherit;font-size:13px;background:none;border:0;color:var(--i-mu);cursor:pointer;padding:4px 8px;border-radius:6px}
+.ide-otab.on{color:var(--i-tx);background:var(--i-hl)}
+.ide-run{font:inherit;font-size:14px;font-weight:700;background:#22a85a;color:#fff;border:0;border-radius:9px;padding:8px 18px;cursor:pointer}
+.ide-run:hover{background:#27bd66}
+.ide-out{border-top:1px solid var(--i-bd);background:#141517}
+.ide-out[hidden]{display:none}
+.ide-outnote{font-size:12px;color:var(--i-mu);padding:8px 14px;border-bottom:1px solid var(--i-bd)}
+.ide-outnote code{background:var(--i-hl);border-color:var(--i-bd);color:var(--i-tx)}
+.ide-out pre{margin:0;max-height:360px;overflow:auto;padding:12px 16px;font-size:12.5px;line-height:1.5;color:#c9ccd1;white-space:pre}
+@media (max-width:760px){
+  .ide{grid-template-columns:1fr}
+  .ide-side{border-right:0;border-bottom:1px solid var(--i-bd)}
+  .ide-tree{max-height:200px;overflow:auto}
+  .ide-code{height:380px}
+}
+.pill.med{background:var(--warn-soft);color:var(--warn);border-color:transparent}
+.pill.hard{background:var(--bad-soft);color:var(--bad);border-color:transparent}
+/* splitwise simulator */
+.swsim{display:grid;grid-template-columns:minmax(0,520px) minmax(0,1fr);gap:22px;margin:16px 0 22px;align-items:start}
+.sw-left{display:flex;flex-direction:column;gap:12px}
+.sw-left .tablewrap{margin:0}
+.sw-form{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.sw-form label,.sw-parts label{display:flex;flex-direction:column;gap:3px;font-size:12.5px;color:var(--muted);font-weight:600}
+.sw-form input,.sw-pct{font:inherit;font-size:13px;padding:5px 8px;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);color:var(--text);width:100%;box-sizing:border-box}
+.sw-parts{display:flex;flex-wrap:wrap;gap:8px}
+.sw-parts label.sw-p{flex-direction:row;align-items:center;gap:6px;padding:6px 10px;border:1px solid var(--border);border-radius:9px;background:var(--bg-soft);color:var(--text)}
+.sw-parts .sw-pct{width:58px;padding:3px 6px}
+.sw-parts:not(.pct) label.sw-p{font-size:13px}
+.sw-parts:not(.pct) label.sw-p::after{content:none}
+.stk th,.stk td{text-align:right;font-variant-numeric:tabular-nums;padding:9px 12px}
+.stk th:first-child,.stk td:first-child{text-align:left}
+.stk td.low{background:var(--bad-soft);color:var(--bad);font-weight:700}
+.sw-graph{border:1px solid var(--border);border-radius:12px;background:var(--bg-soft)}
+.sw-graph svg{display:block;width:100%;height:auto}
+.sw-nd{fill:var(--accent-soft);stroke:var(--accent);stroke-width:2}
+.sw-nt{fill:var(--text);font:700 13px Inter,'Segoe UI',sans-serif;text-anchor:middle}
+.sw-ar{stroke:var(--bad);stroke-width:2.2}
+.sw-ah{fill:var(--bad)}
+.sw-lb{fill:var(--bg-card);stroke:var(--border)}
+.sw-lt{fill:var(--bad);font:700 12px 'JetBrains Mono',Consolas,monospace;text-anchor:middle}
+.log li.alert{background:var(--bad-soft)}
+.log .call{font-variant-ligatures:none}
+.log li.reorder{background:var(--ok-soft)}
+@media (max-width:640px){.sw-form{grid-template-columns:1fr 1fr}}
+.mobile-toc{display:none}
+@media (max-width:1000px){
+  .layout{grid-template-columns:1fr}
+  aside.toc{display:none}
+  main{padding:24px 16px 80px}
+  .mobile-toc{display:block;margin-bottom:20px}
+  .sim,.swsim{grid-template-columns:1fr}
+}
+@media (max-width:640px){
+  h1{font-size:30px} h2{font-size:23px}
+  .grid2,.grid3,.fc-grid,.bucket{grid-template-columns:1fr}
+  .warm li{grid-template-columns:34px minmax(0,1fr)}
+  .warm li a{grid-column:2}
+  .topbar .crumb{display:none}
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <a class="brand" href="../index.html">💸 LLD Walkthroughs</a>
+  <div class="crumb">/ <a href="../index.html?level=hard">Hard</a> / Splitwise</div>
+  <div class="sp"></div>
+  <button class="btn" id="themeBtn" type="button" aria-label="Toggle theme">◐ Theme</button>
+</div>
+<div class="progress" id="progress"></div>
+
+<div class="layout">
+<aside class="toc" id="toc">
+  <h4>On this page</h4>
+  <a href="#overview"><span class="num">0</span>The problem &amp; flow</a>
+  <a href="#warmup"><span class="num">▶</span>Try it first</a>
+  <a href="#requirements"><span class="num">1</span>Requirement gathering</a>
+  <a href="#entities"><span class="num">2</span>Core entities + breakdown</a>
+  <a href="#classes"><span class="num">3</span>Class diagram</a>
+  <a href="#flow"><span class="num">4</span>Simplify-debts flow</a>
+  <a href="#code"><span class="num">5</span>Working code</a>
+  <a href="#try"><span class="num">6</span>Run and Test</a>
+  <a href="#patterns"><span class="num">7</span>Design patterns</a>
+  <a href="#similar"><span class="num">8</span>Similar problems</a>
+  <a href="#recap"><span class="num">9</span>Revision cheat sheet</a>
+</aside>
+
+<main>
+<details class="mobile-toc"><summary>Contents</summary><div class="body" id="mtoc"></div></details>
+
+<!-- ============ 0. OVERVIEW ============ -->
+<section id="overview">
+<div class="prose">
+  <h1>Design Splitwise</h1>
+  <div class="meta">
+    <span class="pill hard">Hard</span>
+    <span class="pill">Java</span>
+    <span class="pill">~25 min read</span>
+    <span class="pill">Code: <code>org.nailyourinterview.lld.splitwise</code></span>
+  </div>
+  <p class="lead">Friends share costs in a group. One person pays; the cost splits among some members — equally or by percentage. The app keeps track of who owes whom, and can <b>simplify</b> the debts so the group settles with fewer payments.</p>
+  <p>The question tests three decisions. <b>How do you split?</b> A <b>Strategy</b> per split type, picked by a factory. <b>Where do balances live?</b> One <code>BalanceSheet</code> per member per group, updated on <b>both sides</b> for every share. <b>How do you simplify?</b> Reduce everyone to one net number, then match the biggest creditor with the biggest debtor until all are zero.</p>
+  <p>Every LLD answer follows the same 5 steps. Requirement gathering splits into 3 buckets: <b>extensibility</b>, <b>dynamic input</b> and <b>high traffic</b>. Click a step to jump to it.</p>
+</div>
+<div class="figure" id="figSteps">
+  <div class="fhead"><b>LLD interview flow — applied to Splitwise</b><span class="sp"></span>
+    <button class="btn" type="button" data-fs="figSteps">⤢ Full screen</button>
+    <button class="btn primary" type="button" data-png="stepsSvg" data-name="lld-interview-flow.png">⬇ Download PNG</button>
+  </div>
+  <div class="canvas"><svg id="stepsSvg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 720" role="img" aria-label="LLD interview flow"></svg></div>
+</div>
+</section>
+
+<!-- ============ WARM-UP ============ -->
+<section id="warmup">
+<div class="prose">
+  <h2><span class="secnum">▶</span>Try it first</h2>
+  <p>Before you read the solution, spend 10–15 minutes on your own. Use paper. A wrong first attempt is fine — it makes the answer stick when you read it.</p>
+  <h3>Step 0 · Split some bills</h3>
+  <p>This is a JavaScript copy of the Java services, with one group of four people. Add expenses, watch the arrows (“A → B ₹x” means A owes B), then press <b>Simplify debts</b>. Try this: load the Main example. Two arrows become one. Why? Then try a percentage split that does not add up to 100.</p>
+</div>
+
+<div class="swsim">
+  <div class="sw-left">
+    <div class="sw-form">
+      <label>Description <input type="text" id="wDesc" value="Dinner"></label>
+      <label>Amount <input type="number" id="wAmt" value="120"></label>
+      <label>Paid by <select id="wPaid"></select></label>
+      <label>Split <select id="wType"><option value="EQUAL">Equal</option><option value="PERCENTAGE">Percentage</option></select></label>
+    </div>
+    <div class="sw-parts" id="wParts"></div>
+    <div class="simctl">
+      <button class="btn primary" type="button" id="wAdd">＋ Add expense</button>
+      <button class="btn" type="button" id="wSimp">⇢ Simplify debts</button>
+      <button class="btn" type="button" id="wMain">Load Main example</button>
+      <button class="btn" type="button" id="wReset">↺ Reset</button>
+    </div>
+    <div class="tablewrap"><table class="stk" id="wTable"></table></div>
+  </div>
+  <div class="simside">
+    <div class="sw-graph"><svg id="wGraph" viewBox="0 0 420 300" role="img" aria-label="Who owes whom"></svg></div>
+    <ul class="log" id="wLog"></ul>
+  </div>
+</div>
+
+<div class="prose">
+  <h3>Now design it yourself</h3>
+  <ol class="warm">
+    <li><span><b>Questions.</b> Write 5 questions you would ask the interviewer.</span><a href="#requirements">compare → 1.1</a></li>
+    <li><span><b>Entities.</b> List the classes. Where does “Tom owes Bob 50” live?</span><a href="#entities">compare → 2</a></li>
+    <li><span><b>Split.</b> Add a third split type (exact amounts). Which classes change?</span><a href="#requirements">compare → 1.3</a></li>
+    <li><span><b>Update.</b> Shubh pays 90 for Shubh, Bob, Tom (equal). Write every balance change.</span><a href="#code">compare → 5.4</a></li>
+    <li><span><b>Simplify.</b> Bob owes Shubh 50, Tom owes Bob 50. Write the algorithm that finds one payment.</span><a href="#flow">compare → 4</a></li>
+  </ol>
+</div>
+</section>
+
+<!-- ============ 1. REQUIREMENTS ============ -->
+<section id="requirements">
+<div class="prose">
+  <h2><span class="secnum">1</span>Requirement gathering</h2>
+  <p>Do not start with code. Ask questions first. Each answer removes a guess. Then sort the answers into 4 buckets: <b>core</b>, <b>extensibility</b>, <b>dynamic input</b> and <b>high traffic</b>.</p>
+
+  <h3>1.1 Ask questions</h3>
+  <div class="chat">
+    <div class="msg c"><div class="av">C</div><div class="bub"><span class="who">Candidate</span>Do expenses belong to a group?</div></div>
+    <div class="msg i"><div class="av">I</div><div class="bub"><span class="who">Interviewer</span>Yes. A user can be in many groups. Model non-group expenses as a special group for now.</div></div>
+    <div class="msg c"><div class="av">C</div><div class="bub"><span class="who">Candidate</span>Who can share an expense?</div></div>
+    <div class="msg i"><div class="av">I</div><div class="bub"><span class="who">Interviewer</span>One member pays. Any subset of members shares it — the payer may or may not be one of them.</div></div>
+    <div class="msg c"><div class="av">C</div><div class="bub"><span class="who">Candidate</span>Which split types?</div></div>
+    <div class="msg i"><div class="av">I</div><div class="bub"><span class="who">Interviewer</span>Equal and percentage now. Exact amounts and shares will come later.</div></div>
+    <div class="msg c"><div class="av">C</div><div class="bub"><span class="who">Candidate</span>What does a user see?</div></div>
+    <div class="msg i"><div class="av">I</div><div class="bub"><span class="who">Interviewer</span>Per group: total paid, own share of expenses, and “you owe X to A”, “you get Y from B”.</div></div>
+    <div class="msg c"><div class="av">C</div><div class="bub"><span class="who">Candidate</span>Simplify debts — what exactly?</div></div>
+    <div class="msg i"><div class="av">I</div><div class="bub"><span class="who">Interviewer</span>Keep what each person is owed overall, but use fewer payments. If Bob owes Shubh 50 and Tom owes Bob 50, Tom just pays Shubh.</div></div>
+    <div class="msg c"><div class="av">C</div><div class="bub"><span class="who">Candidate</span>Settle up, edit, delete, currencies?</div></div>
+    <div class="msg i"><div class="av">I</div><div class="bub"><span class="who">Interviewer</span>Out of scope. Keep the design open for them.</div></div>
+  </div>
+
+  <h3>1.2 Core functional requirements</h3>
+  <ul>
+    <li>Create a group with members; add a member later.</li>
+    <li>Add an expense: description, amount, payer, participants, split type (and percentages for a percentage split).</li>
+    <li>Split equally, or by percentage (the percentages must add up to 100).</li>
+    <li>Keep, per member: total paid, total own expense, and a balance with every other member.</li>
+    <li>Show each member's balances.</li>
+    <li>Simplify the debts of a group: same net amount per person, fewer payments.</li>
+  </ul>
+
+  <h3 id="extensibility">1.3 Extensibility (new features)</h3>
+  <p>Ask: <i>“Which features may come next?”</i> You do not build them now. You make sure each one is an <b>addition</b>, not a rewrite. For each feature, name the class that changes and the pattern that keeps the change small.</p>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Follow-up question</th><th>What changes</th><th>Pattern / idea</th></tr></thead>
+    <tbody>
+      <tr><td>Exact amounts, shares (2:1:1)</td><td>New <code>ExactSplitStrategy</code>, <code>ShareSplitStrategy</code>; one enum value and one factory case each</td><td>Strategy + Factory</td></tr>
+      <tr><td>Add a split type with no factory edit</td><td>Factory becomes a <code>Map&lt;SplitType, SplitStrategy&gt;</code> registry</td><td>Registry</td></tr>
+      <tr><td>Settle up (Tom pays Shubh 50)</td><td>A <code>Payment</code> record; <code>updateBalances(group, tom, [Split(shubh, 50)])</code> in reverse</td><td>—</td></tr>
+      <tr><td>Edit or delete an expense</td><td>Apply the old splits with the opposite sign, then the new ones</td><td>Command (undo)</td></tr>
+      <tr><td>Notify members on a new expense</td><td><code>ExpenseListener</code>s called by <code>ExpenseService</code></td><td>Observer</td></tr>
+      <tr><td>Friend view across groups</td><td>Sum one pair's balances over all shared groups</td><td>—</td></tr>
+      <tr><td>Many currencies</td><td><code>Money(amount, currency)</code>; convert at settle time</td><td>Value object</td></tr>
+      <tr><td>Save to a database</td><td>New <code>GroupRepository</code> implementation (interface already exists)</td><td>Repository</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>1.4 Dynamic (user input)</h3>
+  <p>Nothing is hard-coded. Groups, members and expenses come in at runtime:</p>
+  <ul>
+    <li><code>createGroup("Goa Trip", List.of(shubh, bob, tom))</code> returns the group id.</li>
+    <li><code>addExpense(groupId, "Lunch Day-1", 100, shubh, List.of(shubh, bob), SplitType.EQUAL, null)</code>.</li>
+    <li>Percentages: <code>Map.of(shubh, 50.0, bob, 30.0, tom, 20.0)</code> as the last argument.</li>
+  </ul>
+  <div class="callout warn"><b class="t">Validate the input</b>The code checks two things: an unknown group id throws, and percentages must sum to exactly 100. It does <b>not</b> check that the payer and participants are members, that the amount is positive, or that the percentage map is present. An outsider makes <code>getBalanceSheet()</code> return <code>null</code>, so the call fails with a <code>NullPointerException</code>. See <a href="#recap">Traps → fixes</a>.</div>
+
+  <h3>1.5 High traffic (concurrency)</h3>
+  <p><b>Needed, but per group.</b> Many groups work in parallel, and they never touch each other. Inside one group, two members can add expenses at the same moment. The code is single-threaded: plain <code>HashMap</code> balances and <code>+=</code> updates.</p>
+  <ul>
+    <li><b>Race:</b> two expenses both read Bob's balance with Tom, both add, one update is lost. Fix: lock per group (<code>synchronized (group)</code> around <code>addExpense</code> and <code>simplifyDebts</code>).</li>
+    <li><b>At real scale:</b> store expenses as an append-only ledger in a database. Each expense and its splits go in one transaction. Balances are a derived table (or a cache) that you can rebuild from the ledger.</li>
+    <li><b>Double tap:</b> send an idempotency key with “add expense”, so a retry does not add it twice.</li>
+    <li><b>Reads</b> (open the app, see balances) far outnumber writes. Cache balances per group; invalidate on a new expense.</li>
+  </ul>
+
+  <h3>1.6 Non-functional requirements</h3>
+  <ul>
+    <li><b>Correct money</b> — the sum of all balances in a group is always 0. No lost cents.</li>
+    <li><b>Consistent</b> — “A owes B 50” and “B gets 50 from A” always change together.</li>
+    <li><b>Fast reads</b> — balances are kept up to date on write, not computed from all expenses on read.</li>
+    <li><b>Extensible</b> — a new split type is one new class.</li>
+  </ul>
+  <div class="callout tip"><b class="t">Interview tip</b>Say the invariant out loud: “For every share, the participant's balance goes down and the payer's goes up by the same amount. So each group sums to zero.” Simplification only works because of it.</div>
+</div>
+</section>
+
+<!-- ============ 2. ENTITIES ============ -->
+<section id="entities">
+<div class="prose">
+  <h2><span class="secnum">2</span>Core entities + breakdown</h2>
+  <p>Read the requirements again. Underline the nouns. Most nouns become classes. Verbs become methods.</p>
+  <div class="callout">
+    <span class="noun">Users</span> form a <span class="noun">group</span>. A member <i>pays</i> an <span class="noun">expense</span>. The expense is <i>split</i> into <span class="noun">shares</span> by a <span class="noun">split type</span>. Each member has a <span class="noun">balance sheet</span>: what they paid, what they spent, and what they owe or get back from each other member. A member can <i>simplify</i> the group's debts.
+  </div>
+  <p>“Share” becomes <code>Split</code> (a user and an amount). “Split type” is an enum, and the way to split is a strategy. “Owe” and “get back” are not classes: they are the sign of one number in <code>BalanceSheet.balances</code> (negative = I owe, positive = I get back). Services hold the verbs: <code>ExpenseService</code> adds, <code>BalanceSheetService</code> updates, <code>DebtSimplificationService</code> simplifies, <code>GroupService</code> is the entry point.</p>
+
+  <div class="tablewrap"><table>
+    <thead><tr><th>Entity</th><th>Type</th><th>Responsibility</th></tr></thead>
+    <tbody>
+      <tr><td><b>User</b></td><td>Model</td><td>Id and name.</td></tr>
+      <tr><td><b>Group</b></td><td>Model</td><td>Members, expenses, and one <code>BalanceSheet</code> per member.</td></tr>
+      <tr><td><b>Expense</b></td><td>Model</td><td>Description, amount, payer, list of splits, split type.</td></tr>
+      <tr><td><b>Split</b></td><td>Model</td><td>One share: user + amount.</td></tr>
+      <tr><td><b>BalanceSheet</b></td><td>Model</td><td><code>totalPaid</code>, <code>totalExpense</code>, <code>balances: Map&lt;User, Double&gt;</code> (+ get back, − owe).</td></tr>
+      <tr><td><b>SplitStrategy</b> → Equal, Percentage</td><td>Strategy</td><td><code>split(amount, participants, metadata)</code> → list of splits.</td></tr>
+      <tr><td><b>SplitStrategyFactory</b></td><td>Factory</td><td><code>SplitType</code> → strategy.</td></tr>
+      <tr><td><b>GroupService</b></td><td>Service (facade)</td><td>Create groups, add members and expenses, simplify, print. Looks groups up in the repository.</td></tr>
+      <tr><td><b>ExpenseService</b></td><td>Service</td><td>Split, build the <code>Expense</code>, store it, ask for the balance update.</td></tr>
+      <tr><td><b>BalanceSheetService</b></td><td>Service</td><td>Apply the splits to both sides of each pair.</td></tr>
+      <tr><td><b>DebtSimplificationService</b></td><td>Service</td><td>Net balances, then greedy matching with two heaps.</td></tr>
+      <tr><td><b>GroupRepository</b> → InMemory</td><td>Repository</td><td><code>findById</code>, <code>save</code>.</td></tr>
+    </tbody>
+  </table></div>
+  <div class="callout warn"><b class="t">Common mistake</b>Keeping only one global “debt list” of (from, to, amount) records and summing it on every read. It works, but every balance view scans every expense. Keep the running balance per pair, and keep the expenses as the history.</div>
+</div>
+</section>
+
+<!-- ============ 3. CLASSES ============ -->
+<section id="classes">
+<div class="prose">
+  <h2><span class="secnum">3</span>Class diagram</h2>
+  <p>Read it from the top left: <b>GroupService</b> has a repository, an <b>ExpenseService</b> and a <b>DebtSimplificationService</b>. On the right are the models: a <b>Group</b> has many <b>Expenses</b>, <b>Users</b> and <b>BalanceSheets</b>. At the bottom left, the factory creates a <b>SplitStrategy</b>.</p>
+</div>
+
+<div class="figure" id="figClass">
+  <div class="fhead"><b>Class diagram</b><span class="sp"></span>
+    <button class="btn" type="button" data-fs="figClass">⤢ Full screen</button>
+    <button class="btn primary" type="button" data-png="classSvg" data-name="splitwise-class-diagram.png">⬇ Download PNG</button>
+  </div>
+  <div class="canvas"><svg id="classSvg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1160" role="img" aria-label="Class diagram of Splitwise"></svg></div>
+  <div class="cap">Read each line as a sentence: “Group <b>has many</b> BalanceSheets”, “Expense <b>has many</b> Splits”, “EqualSplitStrategy <b>is a</b> SplitStrategy”, “SplitStrategyFactory <b>creates</b> a SplitStrategy”.</div>
+</div>
+
+<div class="prose">
+  <h3>Relationships, one by one</h3>
+  <div class="tablewrap"><table>
+    <thead><tr><th>From → To</th><th>Relationship</th><th>Why</th></tr></thead>
+    <tbody>
+      <tr><td>GroupService → GroupRepository, ExpenseService, DebtSimplificationService</td><td><b>has a</b> <span class="term">aggregation</span></td><td>Passed in to the constructor (<code>@AllArgsConstructor</code>).</td></tr>
+      <tr><td>ExpenseService → BalanceSheetService</td><td><b>has a</b> <span class="term">aggregation</span></td><td>Passed in.</td></tr>
+      <tr><td>InMemoryGroupRepository → GroupRepository</td><td><b>is a</b> <span class="term">realization</span></td><td>Swap for a database later.</td></tr>
+      <tr><td>InMemoryGroupRepository → Group</td><td><b>has many</b> <span class="term">aggregation</span></td><td><code>Map&lt;id, Group&gt;</code>.</td></tr>
+      <tr><td>Group → Expense, BalanceSheet</td><td><b>has many</b> <span class="term">composition</span></td><td>Created for and kept by the group. A sheet is made in <code>addMember</code>.</td></tr>
+      <tr><td>Group → User</td><td><b>has many</b> <span class="term">aggregation</span></td><td>Users live outside; one user is in many groups.</td></tr>
+      <tr><td>Expense → Split</td><td><b>has many</b> <span class="term">composition</span></td><td>The shares of this expense.</td></tr>
+      <tr><td>Expense, Split → User</td><td><b>has a</b> <span class="term">association</span></td><td>Payer; the user of a share.</td></tr>
+      <tr><td>BalanceSheet → User</td><td><b>has many</b> <span class="term">association</span></td><td>Map keys: the other members.</td></tr>
+      <tr><td>ExpenseService → SplitStrategyFactory · Factory → SplitStrategy</td><td><b>uses</b> · <b>creates</b> <span class="term">dependency</span></td><td>Pick a strategy per call.</td></tr>
+      <tr><td>Equal / Percentage → SplitStrategy</td><td><b>is a</b> <span class="term">realization</span></td><td>Implement <code>split</code>.</td></tr>
+    </tbody>
+  </table></div>
+  <div class="callout info"><b class="t">Models are dumb, services are smart</b><code>Group</code>, <code>Expense</code> and <code>BalanceSheet</code> hold data and small mutators. All rules — how to split, how to update both sides, how to simplify — sit in services. That keeps each rule in one place, but the models do not protect themselves: anyone with a <code>Group</code> can change its member list.</div>
+</div>
+</section>
+
+<!-- ============ 4. FLOW ============ -->
+<section id="flow">
+<div class="prose">
+  <h2><span class="secnum">4</span>Simplify-debts flow</h2>
+  <p>Adding an expense is a straight line (split → store → update both sides). The interesting algorithm is <code>simplifyDebts</code>: turn many pairwise debts into one net number per person, then rebuild the debts with as few payments as the greedy rule finds.</p>
+</div>
+<div class="figure" id="figFlow">
+  <div class="fhead"><b>DebtSimplificationService.simplifyDebts() flowchart</b><span class="sp"></span>
+    <button class="btn" type="button" data-fs="figFlow">⤢ Full screen</button>
+    <button class="btn primary" type="button" data-png="flowSvg" data-name="splitwise-simplify-flow.png">⬇ Download PNG</button>
+  </div>
+  <div class="canvas"><svg id="flowSvg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 960" role="img" aria-label="Flowchart of simplifyDebts"></svg></div>
+  <div class="cap">Main: Bob owes Shubh 50, Tom owes Bob 50. Net: Shubh +50, Bob 0, Tom −50. Bob is in no heap. One round: Shubh ↔ Tom, amount 50. Result: Tom owes Shubh 50 — one payment instead of two.</div>
+</div>
+</section>
+
+<!-- ============ 5. CODE ============ -->
+<section id="code">
+<div class="prose">
+  <h2><span class="secnum">5</span>Working code</h2>
+  <p>Build bottom-up: the models, then the split strategies and factory, then <code>BalanceSheet</code> and <code>Group</code>, then the services. The code uses Lombok (<code>@Getter</code>, <code>@AllArgsConstructor</code>, <code>@ToString</code>) to remove boilerplate.</p>
+
+  <h3>5.1 User, Split, Expense</h3>
+<div class="code"><div class="chead"><span>model/User.java · model/Split.java · model/Expense.java · enums/SplitType.java</span><button class="btn copy" type="button">Copy</button></div><pre><code class="language-java">@Getter @AllArgsConstructor @ToString
+public class User {
+    private final String id;
+    private final String name;
+}
+
+@Getter @AllArgsConstructor @ToString
+public class Split {
+    private final User user;
+    @Setter
+    private double amount;
+}
+
+@Getter @AllArgsConstructor @ToString
+public class Expense {
+    private final String description;
+    private final double amount;
+    private final User paidBy;
+    private final List&lt;Split&gt; splits;
+    private final SplitType splitType;
+}
+
+public enum SplitType { EQUAL, PERCENTAGE }</code></pre></div>
+  <p class="why"><b>Watch out:</b> <code>User</code> is a map key everywhere, but it has no <code>equals</code> / <code>hashCode</code>. Two <code>User("u2", "Bob")</code> objects are two different keys. It works in <code>Main</code> only because the same objects are passed every time.</p>
+
+  <h3>5.2 SplitStrategy — how to split</h3>
+<div class="code"><div class="chead"><span>strategy/SplitStrategy.java · EqualSplitStrategy.java · PercentageSplitStrategy.java · factory/SplitStrategyFactory.java</span><button class="btn copy" type="button">Copy</button></div><pre><code class="language-java">public interface SplitStrategy {
+    List&lt;Split&gt; split(double totalAmount, List&lt;User&gt; participants, Map&lt;User, Double&gt; metadata);
+}
+
+public class EqualSplitStrategy implements SplitStrategy {
+    public List&lt;Split&gt; split(double totalAmount, List&lt;User&gt; participants, Map&lt;User, Double&gt; metadata) {
+        double share = totalAmount / participants.size();
+        List&lt;Split&gt; splits = new ArrayList&lt;&gt;();
+        for (User user : participants) {
+            splits.add(new Split(user, share));
+        }
+        return splits;
+    }
+}
+
+public class PercentageSplitStrategy implements SplitStrategy {
+    public List&lt;Split&gt; split(double totalAmount, List&lt;User&gt; participants, Map&lt;User, Double&gt; metadata) {
+        double totalPercent = metadata.values().stream().mapToDouble(Double::doubleValue).sum();
+        if (totalPercent != 100.0) throw new IllegalArgumentException("Total percent should be 100");
+
+        List&lt;Split&gt; splits = new ArrayList&lt;&gt;();
+        for (User user : participants) {
+            splits.add(new Split(user, totalAmount * metadata.getOrDefault(user, 0.0) / 100));
+        }
+        return splits;
+    }
+}
+
+public class SplitStrategyFactory {
+    public static SplitStrategy getStrategy(SplitType splitType) {
+        return switch (splitType) {
+            case EQUAL -&gt; new EqualSplitStrategy();
+            case PERCENTAGE -&gt; new PercentageSplitStrategy();
+        };
+    }
+}</code></pre></div>
+  <p class="why"><b>Why one signature with <code>metadata</code>?</b> Every strategy fits one interface: equal ignores it, percentage reads percents, an exact split would read amounts. The cost: the map means different things per type, and nothing checks that the right one was passed. <b>Two bugs:</b> <code>!= 100.0</code> on doubles rejects valid input (0.1 + 64.1 + 35.8 = 99.99999999999999), and <code>100 / 3</code> gives 33.333… — not a real amount of money.</p>
+
+  <h3>5.3 BalanceSheet and Group</h3>
+<div class="code"><div class="chead"><span>model/BalanceSheet.java · model/Group.java</span><button class="btn copy" type="button">Copy</button></div><pre><code class="language-java">@Getter
+public class BalanceSheet {
+    private double totalPaid = 0.0;
+    private double totalExpense = 0.0;
+    private final Map&lt;User, Double&gt; balances = new HashMap&lt;&gt;();   // + they owe me, - I owe them
+
+    public void addTotalPaid(double amount) { this.totalPaid += amount; }
+    public void addTotalExpense(double amount) { this.totalExpense += amount; }
+
+    public void addBalance(User other, double amount) {
+        balances.put(other, balances.getOrDefault(other, 0.0) + amount);
+        if (Math.abs(balances.get(other)) &lt; 1e-6) balances.remove(other);
+    }
+
+    public void clearBalances() { balances.clear(); }
+    // print(User me) ...
+}
+
+@Getter
+public class Group {
+    private final String id;
+    private final String name;
+    private final List&lt;User&gt; members = new ArrayList&lt;&gt;();
+    private final List&lt;Expense&gt; expenses = new ArrayList&lt;&gt;();
+    private final Map&lt;User, BalanceSheet&gt; balanceSheets = new HashMap&lt;&gt;();
+
+    public Group(String id, String name) { this.id = id; this.name = name; }
+
+    public void addMember(User user) {
+        members.add(user);
+        balanceSheets.putIfAbsent(user, new BalanceSheet());
+    }
+
+    public void addExpense(Expense expense) { expenses.add(expense); }
+
+    public BalanceSheet getBalanceSheet(User user) { return balanceSheets.get(user); }
+}</code></pre></div>
+  <p class="why"><b>Why remove a balance near 0?</b> A settled pair should disappear from the “you owe / you get” list, and doubles rarely land on exactly 0. <b>Why a sheet per group?</b> “Bob owes Tom 50 for Goa” and “Tom owes Bob 20 for rent” are separate stories; each group settles on its own.</p>
+
+  <h3>5.4 BalanceSheetService — both sides of each share</h3>
+<div class="code"><div class="chead"><span>service/BalanceSheetService.java</span><button class="btn copy" type="button">Copy</button></div><pre><code class="language-java">public class BalanceSheetService {
+
+    public void updateBalances(Group group, User paidBy, List&lt;Split&gt; splits) {
+        double totalAmount = splits.stream().mapToDouble(Split::getAmount).sum();
+        group.getBalanceSheet(paidBy).addTotalPaid(totalAmount);
+
+        for (Split split : splits) {
+            User user = split.getUser();
+            double amt = split.getAmount();
+            group.getBalanceSheet(user).addTotalExpense(amt);
+            if (!user.equals(paidBy)) {
+                group.getBalanceSheet(user).addBalance(paidBy, -amt);   // user owes payer
+                group.getBalanceSheet(paidBy).addBalance(user, amt);    // payer gets back
+            }
+        }
+    }
+}</code></pre></div>
+  <p class="why"><b>The heart of the design.</b> Every share changes two numbers by the same amount with opposite signs, so the whole group always sums to 0. The payer's own share counts as expense but creates no debt. Example: Shubh pays 90 for Shubh, Bob, Tom → Shubh paid 90, spent 30, gets 30 from Bob and 30 from Tom; Bob and Tom each owe Shubh 30.</p>
+
+  <h3>5.5 ExpenseService and GroupService</h3>
+<div class="code"><div class="chead"><span>service/ExpenseService.java · service/GroupService.java (core)</span><button class="btn copy" type="button">Copy</button></div><pre><code class="language-java">@AllArgsConstructor
+public class ExpenseService {
+    private final BalanceSheetService balanceSheetService;
+
+    public void addExpense(Group group, String description, double amount, User paidBy,
+                           List&lt;User&gt; participants, SplitType splitType, Map&lt;User, Double&gt; metadata) {
+
+        SplitStrategy strategy = SplitStrategyFactory.getStrategy(splitType);
+        List&lt;Split&gt; splits = strategy.split(amount, participants, metadata);
+        Expense expense = new Expense(description, amount, paidBy, splits, splitType);
+        group.addExpense(expense);
+
+        balanceSheetService.updateBalances(group, paidBy, splits);
+    }
+}
+
+@AllArgsConstructor
+public class GroupService {
+    private final GroupRepository repo;
+    private final ExpenseService expenseService;
+    private final DebtSimplificationService simplifier;
+
+    public String createGroup(String name, List&lt;User&gt; members) {
+        String id = UUID.randomUUID().toString();
+        Group g = new Group(id, name);
+        members.forEach(g::addMember);
+        repo.save(g);
+        return id;
+    }
+
+    public void addExpense(String groupId, String description, double amount,
+                           User paidBy, List&lt;User&gt; participants,
+                           SplitType splitType, Map&lt;User, Double&gt; meta) {
+        expenseService.addExpense(get(groupId), description, amount, paidBy, participants, splitType, meta);
+    }
+
+    public void simplifyDebts(String groupId) {
+        simplifier.simplifyDebts(get(groupId));
+    }
+
+    private Group get(String id) {
+        return repo.findById(id)
+                .orElseThrow(() -&gt; new IllegalArgumentException("Group not found: " + id));
+    }
+    // addMember, printBalances ...
+}</code></pre></div>
+  <p class="why"><b>Why a separate <code>GroupService</code>?</b> Callers use a group <i>id</i>; only this class knows the repository. <code>ExpenseService</code> gets a real <code>Group</code> and never does lookups. <b>Order matters:</b> split first. If the split throws (bad percentages), nothing is stored and no balance changes.</p>
+
+  <h3>5.6 DebtSimplificationService — fewer payments</h3>
+<div class="code"><div class="chead"><span>service/DebtSimplificationService.java</span><button class="btn copy" type="button">Copy</button></div><pre><code class="language-java">public class DebtSimplificationService {
+
+    public void simplifyDebts(Group group) {
+        List&lt;User&gt; users = new ArrayList&lt;&gt;(group.getMembers());
+        Map&lt;User, BalanceSheet&gt; sheets = group.getBalanceSheets();
+
+        // Step 1: Calculate net balances for each user
+        Map&lt;User, Double&gt; netBalances = new HashMap&lt;&gt;();
+        for (User user : users) {
+            double net = 0.0;
+            for (double amount : sheets.get(user).getBalances().values()) net += amount;
+            netBalances.put(user, net);
+            sheets.get(user).clearBalances(); // Clear old balances before recomputing
+        }
+
+        // Step 2: Separate creditors and debtors
+        PriorityQueue&lt;User&gt; creditors = new PriorityQueue&lt;&gt;((a, b) -&gt; Double.compare(netBalances.get(b), netBalances.get(a)));
+        PriorityQueue&lt;User&gt; debtors = new PriorityQueue&lt;&gt;((a, b) -&gt; Double.compare(netBalances.get(a), netBalances.get(b)));
+        for (User user : users) {
+            double net = netBalances.get(user);
+            if (net &gt; 0) creditors.offer(user);
+            else if (net &lt; 0) debtors.offer(user);
+        }
+
+        // Step 3: Match debtors and creditors to settle debts
+        while (!creditors.isEmpty() &amp;&amp; !debtors.isEmpty()) {
+            User creditor = creditors.poll();
+            User debtor = debtors.poll();
+
+            double creditAmount = netBalances.get(creditor);
+            double debitAmount = netBalances.get(debtor);
+            double settledAmount = Math.min(creditAmount, -debitAmount);
+
+            sheets.get(creditor).addBalance(debtor, settledAmount);
+            sheets.get(debtor).addBalance(creditor, -settledAmount);
+
+            netBalances.put(creditor, creditAmount - settledAmount);
+            netBalances.put(debtor, debitAmount + settledAmount);
+
+            if (netBalances.get(creditor) &gt; 0) creditors.offer(creditor);
+            if (netBalances.get(debtor) &lt; 0) debtors.offer(debtor);
+        }
+    }
+}</code></pre></div>
+  <p class="why"><b>Why it works:</b> who pays whom does not matter, only each person's net. Each round settles one side fully, so there are at most <i>n − 1</i> payments. <b>Why poll, change, then offer again?</b> A <code>PriorityQueue</code> does not re-sort when a key changes; the user must leave the heap before its net changes. <b>Honest limit:</b> greedy is not always the minimum number of payments — that problem is NP-hard. Greedy is what Splitwise-style answers use.</p>
+
+  <h3>5.7 Main — the client</h3>
+<div class="code"><div class="chead"><span>Main.java (part)</span><button class="btn copy" type="button">Copy</button></div><pre><code class="language-java">String goaGroupId = groupService.createGroup("Goa Trip", List.of(shubh, bob, tom));
+
+groupService.addExpense(goaGroupId, "Lunch Day-1", 100, shubh,
+        List.of(shubh, bob), SplitType.EQUAL, null);     // Bob owes Shubh 50
+groupService.addExpense(goaGroupId, "Lunch Day-2", 100, bob,
+        List.of(bob, tom), SplitType.EQUAL, null);       // Tom owes Bob 50
+
+groupService.simplifyDebts(goaGroupId);                  // Tom owes Shubh 50
+groupService.printBalances(goaGroupId);</code></pre></div>
+</div>
+</section>
+
+<!-- ============ 6. RUN AND TEST ============ -->
+<section id="try">
+<div class="prose">
+  <h2><span class="secnum">6</span>Run and Test</h2>
+  <p>The full <code>splitwise</code> package, file by file. Click a file to open it. Start with <b>Main.java</b>, then follow the calls: <code>GroupService.addExpense</code> → <code>ExpenseService</code> → <code>SplitStrategyFactory</code> → <code>BalanceSheetService.updateBalances</code>; then <code>DebtSimplificationService.simplifyDebts</code>.
+  <a href="https://github.com/harikrishna8121999/java-low-level-design/tree/main/src/main/java/org/nailyourinterview/lld/splitwise" target="_blank" rel="noopener">Open on GitHub ↗</a></p>
+</div>
+
+<div class="ide" id="ide">
+  <aside class="ide-side">
+    <div class="ide-lang">☕ Java</div>
+    <div class="ide-files">📁 Files <span class="ide-cnt" id="ideCnt"></span></div>
+    <div class="ide-tree" id="ideTree"></div>
+  </aside>
+  <div class="ide-main">
+    <div class="ide-head">
+      <span class="ide-fico">{ }</span><b id="ideTitle"></b><span class="ide-badge" id="ideBadge">MAIN</span>
+      <span class="sp"></span>
+      <button class="ide-ib" type="button" id="ideCopy" title="Copy file">⧉</button>
+      <button class="ide-ib" type="button" id="ideFs" title="Full screen">⤢</button>
+    </div>
+    <div class="ide-tabs" id="ideTabs"></div>
+    <div class="ide-code" id="ideScroll"><div class="ide-gutter" id="ideGutter"></div><pre><code class="language-java" id="ideCode"></code></pre></div>
+    <div class="ide-foot">
+      <button class="ide-otab" type="button" id="ideOutTab">Output</button>
+      <span class="sp"></span>
+      <button class="ide-run" type="button" id="ideRun">▶ Run</button>
+    </div>
+    <div class="ide-out" id="ideOut" hidden>
+      <div class="ide-outnote">Recorded run of <code>Main</code> (a browser cannot run Java). Two lunches in the Goa group, then simplify and print. Bob is even; Tom now owes Shubh directly.</div>
+      <pre id="ideOutPre"></pre>
+    </div>
+  </div>
+</div>
+<script type="application/json" id="repoFiles">{"files": [{"path": "enums/SplitType.java", "code": "package org.nailyourinterview.lld.splitwise.enums;\n\npublic enum SplitType {\n    EQUAL, PERCENTAGE\n}"}, {"path": "factory/SplitStrategyFactory.java", "code": "package org.nailyourinterview.lld.splitwise.factory;\n\nimport org.nailyourinterview.lld.splitwise.enums.SplitType;\nimport org.nailyourinterview.lld.splitwise.strategy.EqualSplitStrategy;\nimport org.nailyourinterview.lld.splitwise.strategy.PercentageSplitStrategy;\nimport org.nailyourinterview.lld.splitwise.strategy.SplitStrategy;\n\npublic class SplitStrategyFactory {\n    public static SplitStrategy getStrategy(SplitType splitType) {\n        return switch (splitType) {\n            case EQUAL -> new EqualSplitStrategy();\n            case PERCENTAGE -> new PercentageSplitStrategy();\n        };\n    }\n}"}, {"path": "model/BalanceSheet.java", "code": "package org.nailyourinterview.lld.splitwise.model;\n\nimport lombok.Getter;\n\nimport java.util.HashMap;\nimport java.util.Map;\n\n@Getter\npublic class BalanceSheet {\n    private double totalPaid = 0.0;\n    private double totalExpense = 0.0;\n    private final Map<User, Double> balances = new HashMap<>();\n\n    public void addTotalPaid(double amount) {\n        this.totalPaid += amount;\n    }\n\n    public void addTotalExpense(double amount) {\n        this.totalExpense += amount;\n    }\n\n    public void addBalance(User other, double amount) {\n        balances.put(other, balances.getOrDefault(other, 0.0) + amount);\n        if (Math.abs(balances.get(other)) < 1e-6) balances.remove(other);\n    }\n\n    public void clearBalances() {\n        balances.clear();\n    }\n\n    public void print(User me) {\n        double youOwe = 0.0, youGetBack = 0.0;\n        for (double amount : balances.values()) {\n            if (amount < 0) youOwe += -amount;\n            else youGetBack += amount;\n        }\n\n        System.out.println(\"💵 Balance sheet of : \" + me.getName());\n        System.out.println(\"Total You Paid : \" + totalPaid);\n        System.out.println(\"Total Expense : \" + totalExpense);\n        System.out.println(\"Total You Owe : \" + youOwe);\n        System.out.println(\"Total You Get Back : \" + youGetBack);\n\n        for (Map.Entry<User, Double> entry : balances.entrySet()) {\n            double amount = entry.getValue();\n            if (amount > 0)\n                System.out.println(\"You get back \" + amount + \" from \" + entry.getKey().getName());\n            else if (amount < 0)\n                System.out.println(\"You owe \" + (-amount) + \" to \" + entry.getKey().getName());\n        }\n        System.out.println(\"---------------------------------\");\n        System.out.println(\"---------------------------------\");\n    }\n}\n"}, {"path": "model/Expense.java", "code": "package org.nailyourinterview.lld.splitwise.model;\n\nimport lombok.AllArgsConstructor;\nimport lombok.Getter;\nimport lombok.ToString;\nimport org.nailyourinterview.lld.splitwise.enums.SplitType;\n\nimport java.util.List;\n\n@Getter\n@AllArgsConstructor\n@ToString\npublic class Expense {\n    private final String description;\n    private final double amount;\n    private final User paidBy;\n    private final List<Split> splits;\n    private final SplitType splitType;\n}"}, {"path": "model/Group.java", "code": "package org.nailyourinterview.lld.splitwise.model;\n\nimport lombok.Getter;\n\nimport java.util.*;\n\n@Getter\npublic class Group {\n    private final String id;\n    private final String name;\n    private final List<User> members = new ArrayList<>();\n    private final List<Expense> expenses = new ArrayList<>();\n    private final Map<User, BalanceSheet> balanceSheets = new HashMap<>();\n\n    public Group(String id, String name) {\n        this.id = id;\n        this.name = name;\n    }\n\n    public void addMember(User user) {\n        members.add(user);\n        balanceSheets.putIfAbsent(user, new BalanceSheet());\n    }\n\n    public void addExpense(Expense expense) {\n        expenses.add(expense);\n    }\n\n    public BalanceSheet getBalanceSheet(User user) {\n        return balanceSheets.get(user);\n    }\n}"}, {"path": "model/Split.java", "code": "package org.nailyourinterview.lld.splitwise.model;\n\nimport lombok.AllArgsConstructor;\nimport lombok.Getter;\nimport lombok.Setter;\nimport lombok.ToString;\n\n@Getter\n@AllArgsConstructor\n@ToString\npublic class Split {\n    private final User user;\n    @Setter\n    private double amount;\n}"}, {"path": "model/User.java", "code": "package org.nailyourinterview.lld.splitwise.model;\n\nimport lombok.AllArgsConstructor;\nimport lombok.Getter;\nimport lombok.ToString;\n\n@Getter\n@AllArgsConstructor\n@ToString\npublic class User {\n    private final String id;\n    private final String name;\n}"}, {"path": "repository/GroupRepository.java", "code": "package org.nailyourinterview.lld.splitwise.repository;\n\nimport org.nailyourinterview.lld.splitwise.model.Group;\n\nimport java.util.Optional;\n\npublic interface GroupRepository {\n    Optional<Group> findById(String id);\n    void save(Group group);\n}\n"}, {"path": "repository/InMemoryGroupRepository.java", "code": "package org.nailyourinterview.lld.splitwise.repository;\n\nimport org.nailyourinterview.lld.splitwise.model.Group;\n\nimport java.util.HashMap;\nimport java.util.Map;\nimport java.util.Optional;\n\npublic class InMemoryGroupRepository implements GroupRepository {\n\n    private final Map<String, Group> store = new HashMap<>();\n\n    @Override\n    public Optional<Group> findById(String id) { return Optional.ofNullable(store.get(id)); }\n\n    @Override\n    public void save(Group g) { store.put(g.getId(), g); }\n}"}, {"path": "service/BalanceSheetService.java", "code": "package org.nailyourinterview.lld.splitwise.service;\n\nimport org.nailyourinterview.lld.splitwise.model.Group;\nimport org.nailyourinterview.lld.splitwise.model.Split;\nimport org.nailyourinterview.lld.splitwise.model.User;\n\nimport java.util.List;\n\npublic class BalanceSheetService {\n\n    public void updateBalances(Group group, User paidBy, List<Split> splits) {\n        double totalAmount = splits.stream().mapToDouble(Split::getAmount).sum();\n        group.getBalanceSheet(paidBy).addTotalPaid(totalAmount);\n\n        for (Split split : splits) {\n            User user = split.getUser();\n            double amt = split.getAmount();\n            group.getBalanceSheet(user).addTotalExpense(amt);\n            if (!user.equals(paidBy)) {\n                group.getBalanceSheet(user).addBalance(paidBy, -amt);\n                group.getBalanceSheet(paidBy).addBalance(user, amt);\n            }\n        }\n    }\n}\n"}, {"path": "service/DebtSimplificationService.java", "code": "package org.nailyourinterview.lld.splitwise.service;\n\nimport org.nailyourinterview.lld.splitwise.model.BalanceSheet;\nimport org.nailyourinterview.lld.splitwise.model.Group;\nimport org.nailyourinterview.lld.splitwise.model.User;\n\nimport java.util.*;\n\npublic class DebtSimplificationService {\n\n    public void simplifyDebts(Group group) {\n        List<User> users = new ArrayList<>(group.getMembers());\n        Map<User, BalanceSheet> sheets = group.getBalanceSheets();\n\n        // Step 1: Calculate net balances for each user\n        Map<User, Double> netBalances = new HashMap<>();\n        for (User user : users) {\n            double net = 0.0;\n            Map<User, Double> balances = sheets.get(user).getBalances();\n            for (double amount : balances.values()) {\n                net += amount;\n            }\n            netBalances.put(user, net);\n            sheets.get(user).clearBalances(); // Clear old balances before recomputing\n        }\n\n        // Step 2: Separate creditors and debtors\n        PriorityQueue<User> creditors = new PriorityQueue<>((a, b) -> Double.compare(netBalances.get(b), netBalances.get(a)));\n        PriorityQueue<User> debtors = new PriorityQueue<>((a, b) -> Double.compare(netBalances.get(a), netBalances.get(b)));\n\n        for (User user : users) {\n            double net = netBalances.get(user);\n            if (net > 0) {\n                creditors.offer(user);\n            } else if (net < 0) {\n                debtors.offer(user);\n            }\n        }\n\n        // Step 3: Match debtors and creditors to settle debts\n        while (!creditors.isEmpty() && !debtors.isEmpty()) {\n            User creditor = creditors.poll();\n            User debtor = debtors.poll();\n\n            double creditAmount = netBalances.get(creditor);\n            double debitAmount = netBalances.get(debtor);\n\n            double settledAmount = Math.min(creditAmount, -debitAmount);\n\n            // Update balances both sides\n            sheets.get(creditor).addBalance(debtor, settledAmount);\n            sheets.get(debtor).addBalance(creditor, -settledAmount);\n\n            // Update net balances after settlement\n            netBalances.put(creditor, creditAmount - settledAmount);\n            netBalances.put(debtor, debitAmount + settledAmount);\n\n            // If still unsettled, re-add to queues\n            if (netBalances.get(creditor) > 0) {\n                creditors.offer(creditor);\n            }\n            if (netBalances.get(debtor) < 0) {\n                debtors.offer(debtor);\n            }\n        }\n    }\n}"}, {"path": "service/ExpenseService.java", "code": "package org.nailyourinterview.lld.splitwise.service;\n\nimport lombok.AllArgsConstructor;\nimport org.nailyourinterview.lld.splitwise.enums.SplitType;\nimport org.nailyourinterview.lld.splitwise.factory.SplitStrategyFactory;\nimport org.nailyourinterview.lld.splitwise.model.*;\nimport org.nailyourinterview.lld.splitwise.strategy.SplitStrategy;\n\nimport java.util.*;\n\n@AllArgsConstructor\npublic class ExpenseService {\n    private final BalanceSheetService balanceSheetService;\n\n    public void addExpense(Group group, String description, double amount, User paidBy,\n                           List<User> participants, SplitType splitType, Map<User, Double> metadata) {\n\n        SplitStrategy strategy = SplitStrategyFactory.getStrategy(splitType);\n        List<Split> splits = strategy.split(amount, participants, metadata);\n        Expense expense = new Expense(description, amount, paidBy, splits, splitType);\n        group.addExpense(expense);\n\n        balanceSheetService.updateBalances(group, paidBy, splits);\n    }\n}"}, {"path": "service/GroupService.java", "code": "package org.nailyourinterview.lld.splitwise.service;\n\nimport lombok.AllArgsConstructor;\nimport org.nailyourinterview.lld.splitwise.enums.SplitType;\nimport org.nailyourinterview.lld.splitwise.model.Group;\nimport org.nailyourinterview.lld.splitwise.model.User;\nimport org.nailyourinterview.lld.splitwise.repository.GroupRepository;\n\nimport java.util.List;\nimport java.util.Map;\nimport java.util.UUID;\n\n@AllArgsConstructor\npublic class GroupService {\n\n    private final GroupRepository repo;\n    private final ExpenseService expenseService;\n    private final DebtSimplificationService simplifier;\n\n    public String createGroup(String name, List<User> members) {\n        String id = UUID.randomUUID().toString();\n        Group g = new Group(id, name);\n        members.forEach(g::addMember);\n\n        repo.save(g);\n        return id;\n    }\n\n    public void addMember(String groupId, User user) {\n        get(groupId).addMember(user);\n    }\n\n    public void addExpense(String groupId,\n                           String description, double amount,\n                           User paidBy, List<User> participants,\n                           SplitType splitType, Map<User, Double> meta) {\n\n        expenseService.addExpense(get(groupId), description, amount,\n                paidBy, participants, splitType, meta);\n    }\n\n    public void simplifyDebts(String groupId) {\n        simplifier.simplifyDebts(get(groupId));\n    }\n\n    public void printBalances(String groupId) {\n        Group g = get(groupId);\n        g.getMembers().forEach(u -> {\n            var sheet = g.getBalanceSheet(u);\n\n            double owe = 0, get = 0;\n            for (double v : sheet.getBalances().values()) {\n                if (v < 0) owe += -v; else get += v;\n            }\n            System.out.printf(\"\"\"\n                               💵 %s\n                               Paid: %.2f  Expense: %.2f\n                               You owe: %.2f, You get: %.2f%n\"\"\",\n                    u.getName(), sheet.getTotalPaid(),\n                    sheet.getTotalExpense(), owe, get);\n\n            sheet.getBalances().forEach((other, val) -> System.out.printf(\n                    \"  %s %.2f %s%n\",\n                    val > 0 ? \"← get\" : \"→ owe\",\n                    Math.abs(val),\n                    other.getName()));\n            System.out.println(\"--------------------------\");\n        });\n    }\n\n    private Group get(String id) {\n        return repo.findById(id)\n                .orElseThrow(() -> new IllegalArgumentException(\"Group not found: \" + id));\n    }\n}"}, {"path": "strategy/EqualSplitStrategy.java", "code": "package org.nailyourinterview.lld.splitwise.strategy;\n\nimport org.nailyourinterview.lld.splitwise.model.Split;\nimport org.nailyourinterview.lld.splitwise.model.User;\n\nimport java.util.ArrayList;\nimport java.util.List;\nimport java.util.Map;\n\npublic class EqualSplitStrategy implements SplitStrategy {\n    public List<Split> split(double totalAmount, List<User> participants, Map<User, Double> metadata) {\n        double share = totalAmount / participants.size();\n        List<Split> splits = new ArrayList<>();\n        for (User user : participants) {\n            splits.add(new Split(user, share));\n        }\n        return splits;\n    }\n}"}, {"path": "strategy/PercentageSplitStrategy.java", "code": "package org.nailyourinterview.lld.splitwise.strategy;\n\nimport org.nailyourinterview.lld.splitwise.model.Split;\nimport org.nailyourinterview.lld.splitwise.model.User;\n\nimport java.util.ArrayList;\nimport java.util.List;\nimport java.util.Map;\n\npublic class PercentageSplitStrategy implements SplitStrategy {\n    public List<Split> split(double totalAmount, List<User> participants, Map<User, Double> metadata) {\n        double totalPercent = metadata.values().stream().mapToDouble(Double::doubleValue).sum();\n        if (totalPercent != 100.0) throw new IllegalArgumentException(\"Total percent should be 100\");\n\n        List<Split> splits = new ArrayList<>();\n        for (User user : participants) {\n            splits.add(new Split(user, totalAmount * metadata.getOrDefault(user, 0.0) / 100));\n        }\n        return splits;\n    }\n}"}, {"path": "strategy/SplitStrategy.java", "code": "package org.nailyourinterview.lld.splitwise.strategy;\n\nimport org.nailyourinterview.lld.splitwise.model.Split;\nimport org.nailyourinterview.lld.splitwise.model.User;\n\nimport java.util.List;\nimport java.util.Map;\n\npublic interface SplitStrategy {\n    List<Split> split(double totalAmount, List<User> participants, Map<User, Double> metadata);\n}"}, {"path": "Main.java", "code": "package org.nailyourinterview.lld.splitwise;\n\nimport org.nailyourinterview.lld.splitwise.enums.SplitType;\nimport org.nailyourinterview.lld.splitwise.model.User;\nimport org.nailyourinterview.lld.splitwise.repository.InMemoryGroupRepository;\nimport org.nailyourinterview.lld.splitwise.service.*;\n\nimport java.util.*;\n\npublic class Main {\n    public static void main(String[] args) {\n\n        // users\n        User shubh = new User(\"u1\", \"Shubh\");\n        User bob   = new User(\"u2\", \"Bob\");\n        User tom   = new User(\"u3\", \"Tom\");\n        User jake  = new User(\"u4\", \"Jake\");\n\n        InMemoryGroupRepository repo  = new InMemoryGroupRepository();\n        BalanceSheetService balanceSheetService = new BalanceSheetService();\n        ExpenseService expenseService = new ExpenseService(balanceSheetService);\n        DebtSimplificationService simplificationService = new DebtSimplificationService();\n\n        GroupService groupService = new GroupService(repo, expenseService, simplificationService);\n\n        /* ---------- create groups ---------- */\n        String goaGroupId = groupService.createGroup(\"Goa Trip\", List.of(shubh, bob, tom));\n        String miscGroup  = groupService.createGroup(\"Non-Group Expenses\", List.of(shubh, bob, tom, jake));\n\n        /* ---------- add expenses ---------- */\n        groupService.addExpense(goaGroupId,\n                \"Lunch Day-1\", 100, shubh,\n                List.of(shubh, bob), SplitType.EQUAL, null);\n\n        groupService.addExpense(goaGroupId,\n                \"Lunch Day-2\", 100, bob,\n                List.of(bob, tom), SplitType.EQUAL, null);\n\n        /* ---------- simplify & print ---------- */\n        groupService.simplifyDebts(goaGroupId);\n        groupService.printBalances(goaGroupId);\n    }\n}"}], "output": "💵 Shubh\nPaid: 100.00  Expense: 50.00\nYou owe: 0.00, You get: 50.00\n  ← get 50.00 Tom\n--------------------------\n💵 Bob\nPaid: 100.00  Expense: 100.00\nYou owe: 0.00, You get: 0.00\n--------------------------\n💵 Tom\nPaid: 0.00  Expense: 50.00\nYou owe: 50.00, You get: 0.00\n  → owe 50.00 Shubh\n--------------------------\n", "main": "Main.java"}</script>
+</section>
+
+<!-- ============ 7. PATTERNS ============ -->
+<section id="patterns">
+<div class="prose">
+  <h2><span class="secnum">7</span>Design patterns</h2>
+  <p>Be honest in the interview. Say which patterns the code <i>uses</i> and which ones you <i>would add</i>.</p>
+  <div class="grid2">
+    <div class="card"><h4>Strategy <span class="tag used">used</span></h4><p><code>SplitStrategy</code> with <code>EqualSplitStrategy</code> and <code>PercentageSplitStrategy</code>. <code>ExpenseService</code> does not know how a split is computed.</p></div>
+    <div class="card"><h4>Simple Factory <span class="tag used">used</span></h4><p><code>SplitStrategyFactory.getStrategy(SplitType)</code>. One <code>switch</code> maps the enum to a strategy.</p></div>
+    <div class="card"><h4>Repository <span class="tag used">used</span></h4><p><code>GroupRepository</code> + <code>InMemoryGroupRepository</code>. A database version needs no service change.</p></div>
+    <div class="card"><h4>Service layer / facade <span class="tag used">used</span></h4><p><code>GroupService</code> is the entry point; three smaller services each own one rule. Dependencies come in through constructors.</p></div>
+    <div class="card"><h4>Registry factory <span class="tag could">would add</span></h4><p><code>Map&lt;SplitType, SplitStrategy&gt;</code> filled at start-up. A new split type then needs no factory edit, and strategies (they have no state) are reused.</p></div>
+    <div class="card"><h4>Command <span class="tag could">would add</span></h4><p>Each expense or payment as a command with <code>apply()</code> / <code>revert()</code>. Gives edit, delete and an audit trail.</p></div>
+    <div class="card"><h4>Observer <span class="tag could">would add</span></h4><p><code>ExpenseListener</code>s: push a notification, update an activity feed, refresh a cache.</p></div>
+    <div class="card"><h4><code>double</code> for money <span class="tag avoid">avoid</span></h4><p>33.333… is not money, and exact compares fail. Use <code>long</code> paise or <code>BigDecimal</code>. Also avoid a Singleton service: tests need fresh state.</p></div>
+  </div>
+  <div class="callout"><b class="t">SOLID check</b>
+    <ul>
+      <li><b>S</b> — One rule per service: split, update balances, simplify, look up groups.</li>
+      <li><b>O</b> — A new split type is a new class <i>plus</i> an enum value and a factory case — not fully closed. A registry fixes it.</li>
+      <li><b>L</b> — Any <code>SplitStrategy</code> returns a list of splits; the rest of the code does not care which.</li>
+      <li><b>I</b> — Interfaces are small (<code>split</code>; <code>findById</code> + <code>save</code>).</li>
+      <li><b>D</b> — <code>GroupService</code> depends on <code>GroupRepository</code>, not the in-memory class. <i>But</i> <code>ExpenseService</code> calls the static factory directly, so a test cannot inject a fake strategy.</li>
+    </ul>
+  </div>
+  <h3>Example: an exact split, plus a registry</h3>
+<div class="code"><div class="chead"><span>strategy/ExactSplitStrategy.java (would add)</span><button class="btn copy" type="button">Copy</button></div><pre><code class="language-java">public class ExactSplitStrategy implements SplitStrategy {
+    public List&lt;Split&gt; split(double totalAmount, List&lt;User&gt; participants, Map&lt;User, Double&gt; amounts) {
+        double sum = participants.stream().mapToDouble(u -&gt; amounts.getOrDefault(u, 0.0)).sum();
+        if (Math.abs(sum - totalAmount) &gt; 0.01)
+            throw new IllegalArgumentException("Exact amounts add up to " + sum + ", not " + totalAmount);
+        return participants.stream().map(u -&gt; new Split(u, amounts.getOrDefault(u, 0.0))).toList();
+    }
+}
+
+// Registry instead of a switch: add one line, touch nothing else
+Map&lt;SplitType, SplitStrategy&gt; strategies = Map.of(
+        SplitType.EQUAL, new EqualSplitStrategy(),
+        SplitType.PERCENTAGE, new PercentageSplitStrategy(),
+        SplitType.EXACT, new ExactSplitStrategy());</code></pre></div>
+  <p class="why"><code>BalanceSheetService</code> and <code>DebtSimplificationService</code> do not change: they only see splits. Note the tolerance check (<code>&gt; 0.01</code>) instead of <code>!=</code>.</p>
+</div>
+</section>
+
+<!-- ============ 8. SIMILAR ============ -->
+<section id="similar">
+<div class="prose">
+  <h2><span class="secnum">8</span>Similar problems</h2>
+  <p>A problem is similar only if the <b>shared-ledger model carries over</b>: people, a payment that splits into shares, a running balance per pair that always sums to zero, and settling with as few transfers as possible. The problems below share that skeleton. They are ranked by how much of this design you can reuse.</p>
+
+  <div class="callout info"><b class="t">The shared skeleton</b>
+    <p><code>addExpense(payer, amount, participants, type)</code> → <code>strategy.split()</code> → for each share: <code>sheet[user][payer] −= x</code>, <code>sheet[payer][user] += x</code> → later: net per person → greedy creditor ↔ debtor matching.</p>
+  </div>
+
+  <div class="tablewrap"><table>
+    <thead><tr><th>Problem</th><th>Reuse from Splitwise</th><th>New part to learn</th></tr></thead>
+    <tbody>
+      <tr><td><b>Trip / roommate expense sharing</b><br><span class="pill easy" style="margin-top:4px;display:inline-block">closest</span></td><td>All of it: groups, split types, balances, simplify.</td><td>Recurring bills (rent every month); a settle-up payment record.</td></tr>
+      <tr><td><b>Restaurant bill splitter</b></td><td>Split strategies, payer and shares, balances.</td><td>Items as the unit: each dish split among the people who ate it; tax and tip split pro-rata.</td></tr>
+      <tr><td><b>Office lunch / coffee tab</b></td><td>Pair balances, settle-up, “who should pay next”.</td><td>Rotation: pick the member with the most negative net as next payer.</td></tr>
+      <tr><td><b>Peer-to-peer IOU ledger</b> (friends lend money)</td><td>Pair balances, two-sided updates, simplification.</td><td>No groups: one global friend graph; payment requests and reminders.</td></tr>
+      <tr><td><b>Interbank / inter-company netting</b></td><td>The simplify algorithm exactly: net per party, then match.</td><td>Large scale, currencies, settlement windows, audit of every transfer.</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="callout tip"><b class="t">Practice order</b>Splitwise (this) → add settle-up and exact split → Restaurant bill splitter (items) → P2P IOU ledger (no groups) → Netting at scale.</div>
+</div>
+</section>
+
+<!-- ============ 9. RECAP ============ -->
+<section id="recap">
+<div class="prose">
+  <h2><span class="secnum">9</span>Revision cheat sheet</h2>
+  <p style="color:var(--muted)">Read top to bottom, in the order you speak in the interview. Then close your eyes and use the flip cards.</p>
+
+  <div class="tldr">
+    <span class="tldr-k">In one breath</span>
+    <b>GroupService</b> finds the <b>Group</b> and hands the call to <b>ExpenseService</b>, which asks the <b>factory</b> for a <b>SplitStrategy</b> (equal / percentage), stores the <b>Expense</b> with its <b>Splits</b>, and lets <b>BalanceSheetService</b> update <b>both sides</b> of each share in the members' <b>BalanceSheets</b> — so the group always sums to 0. <b>DebtSimplificationService</b> reduces everyone to one net number and matches the biggest creditor with the biggest debtor using two heaps.
+  </div>
+
+  <div class="tl">
+    <div class="tl-step">
+      <div class="tl-dot" style="background:#EFF1F4;border-color:#A9B1BD">1</div>
+      <div class="tl-body">
+        <h4>Understand the system</h4>
+        <p class="say">Group → someone pays → split into shares → who owes whom → simplify → settle.</p>
+      </div>
+    </div>
+
+    <div class="tl-step">
+      <div class="tl-dot" style="background:#FFF6C7;border-color:#FFD43B">2</div>
+      <div class="tl-body">
+        <h4>Requirement gathering</h4>
+        <div class="bucket">
+          <span class="bk">Core</span><span>groups + members · add expense · equal / percentage split · paid, expense and pair balances · show balances · simplify debts</span>
+          <span class="bk">Extensibility</span><span>exact / share split · settle up · edit / delete · notifications · friend view · currencies · database</span>
+          <span class="bk">Dynamic</span><span>groups, members, expenses, percentages at runtime · validate members, amount, percents</span>
+          <span class="bk">High traffic</span><span>yes, per group — lock per group or a DB transaction; ledger + derived balances; idempotency key</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="tl-step">
+      <div class="tl-dot" style="background:#FFE3E3;border-color:#F27474">3</div>
+      <div class="tl-body">
+        <h4>Core entities</h4>
+        <div class="chips">
+          <span class="chip">User</span><span class="chip">Group</span><span class="chip">Expense → Split</span><span class="chip hl">BalanceSheet (Map User → ±amount)</span>
+          <span class="chip hl">SplitStrategy → Equal, Percentage (+ Factory)</span><span class="chip">GroupService · ExpenseService · BalanceSheetService · DebtSimplificationService</span><span class="chip">GroupRepository</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="tl-step">
+      <div class="tl-dot" style="background:#EFE7FF;border-color:#A98BF5">4</div>
+      <div class="tl-body">
+        <h4>Class diagram + flow</h4>
+        <div class="figure" id="figRev" style="margin:4px 0 0">
+          <div class="fhead"><b>Who owns what · who calls whom</b><span class="sp"></span>
+            <button class="btn" type="button" data-fs="figRev">⤢ Full screen</button>
+            <button class="btn primary" type="button" data-png="revSvg" data-name="splitwise-revision.png">⬇ PNG</button>
+          </div>
+          <div class="canvas"><svg id="revSvg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 680" role="img" aria-label="Class diagram with call flow"></svg></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tl-step">
+      <div class="tl-dot" style="background:#EFF1F4;border-color:#A9B1BD">5</div>
+      <div class="tl-body">
+        <h4>Working code — the only lines to remember</h4>
+<pre class="tree"><span class="tc">// Add: split, then update both sides of each share</span>
+List&lt;Split&gt; splits = SplitStrategyFactory.getStrategy(type).split(amount, users, meta);
+for (Split s : splits) if (!s.getUser().equals(paidBy)) {
+    sheet(s.getUser()).addBalance(paidBy, -s.getAmount());   <span class="tc">// I owe</span>
+    sheet(paidBy).addBalance(s.getUser(), s.getAmount());    <span class="tc">// I get back</span>
+}
+
+<span class="tc">// Simplify: net per user, then biggest creditor ↔ biggest debtor</span>
+while (!creditors.isEmpty() &amp;&amp; !debtors.isEmpty()) {
+    User c = creditors.poll(), d = debtors.poll();
+    double x = Math.min(net.get(c), -net.get(d));
+    sheet(c).addBalance(d, x);  sheet(d).addBalance(c, -x);
+    net.put(c, net.get(c) - x); net.put(d, net.get(d) + x);
+    if (net.get(c) &gt; 0) creditors.offer(c);
+    if (net.get(d) &lt; 0) debtors.offer(d);
+}</pre>
+      </div>
+    </div>
+  </div>
+
+  <h3>Traps → fixes</h3>
+  <div class="tablewrap"><table class="traps">
+    <tbody>
+      <tr><td>Payer or participant not in the group → <code>getBalanceSheet()</code> is <code>null</code> → <code>NullPointerException</code> (checked)</td><td>Validate membership in <code>ExpenseService</code>; throw a clear error</td></tr>
+      <tr><td><code>User</code> has no <code>equals</code> / <code>hashCode</code>: a new <code>User("u2", "Bob")</code> is a different key → NPE (checked)</td><td><code>@EqualsAndHashCode(of = "id")</code>, or look users up by id</td></tr>
+      <tr><td><code>totalPercent != 100.0</code> rejects 0.1 + 64.1 + 35.8 = 99.99999999999999 (checked)</td><td><code>Math.abs(total - 100) &lt; 0.01</code>, or percent in basis points (<code>int</code>)</td></tr>
+      <tr><td><code>double</code> money: 100 / 3 = 33.333…, and cents drift</td><td><code>long</code> paise; give the remainder paise to the first <i>r</i> people</td></tr>
+      <tr><td>Percentage split with <code>null</code> map → NPE; percents for non-participants are summed but ignored</td><td>Require the map; its keys must equal the participants</td></tr>
+      <tr><td>No check for amount ≤ 0 or an empty participant list (equal split divides by 0)</td><td>Validate before splitting</td></tr>
+      <tr><td><code>simplifyDebts</code> overwrites the pair balances; the original who-owes-whom is lost</td><td>Keep raw balances; return the simplified list as a view</td></tr>
+      <tr><td><code>@Getter</code> on <code>Group</code> hands out the live <code>members</code> list; <code>addMember</code> twice adds a duplicate</td><td>Return an unmodifiable copy; use a <code>LinkedHashSet</code></td></tr>
+      <tr><td>“Non-Group Expenses” is a group, so one friend's balances are split across groups</td><td>A friend view that sums the pair over all groups</td></tr>
+      <tr><td>Plain <code>HashMap</code> and <code>+=</code>: two expenses at once lose an update</td><td>Lock per group, or one DB transaction per expense</td></tr>
+      <tr><td>Greedy simplify is not always the minimum number of payments</td><td>Say so: the exact problem is NP-hard; greedy gives ≤ n − 1</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>Patterns in one look</h3>
+  <div class="pat">
+    <div><span class="tag used">used</span>Strategy (split) · Simple Factory · Repository · service layer with constructor injection</div>
+    <div><span class="tag could">add</span>Registry factory · Command (edit / delete / settle) · Observer (notifications)</div>
+    <div><span class="tag avoid">avoid</span><code>double</code> money · exact <code>==</code> on doubles · map keys without <code>equals</code> · Singleton services</div>
+  </div>
+
+  <h3>Test yourself</h3>
+  <div class="fc-bar">
+    <span style="color:var(--muted);font-size:14px">Say the answer out loud first. Then tap the card.</span>
+    <button class="btn" type="button" id="fcAll">Show all answers</button>
+  </div>
+  <div class="fc-grid" id="fcGrid">
+    <button class="fc" type="button"><span class="q">Where does “Tom owes Bob 50” live?</span><span class="a">Twice: <code>Tom.sheet.balances[Bob] = −50</code> and <code>Bob.sheet.balances[Tom] = +50</code>, in that group's sheets.</span></button>
+    <button class="fc" type="button"><span class="q">Shubh pays 90 for Shubh, Bob, Tom (equal). Changes?</span><span class="a">Shubh: paid +90, expense +30, [Bob] +30, [Tom] +30. Bob: expense +30, [Shubh] −30. Tom: the same as Bob.</span></button>
+    <button class="fc" type="button"><span class="q">Why does the group always sum to 0?</span><span class="a">Every share adds −x to one side and +x to the other. Simplification relies on this.</span></button>
+    <button class="fc" type="button"><span class="q">Add an “exact amounts” split. What changes?</span><span class="a">New <code>ExactSplitStrategy</code>, enum value <code>EXACT</code>, one factory case. Services unchanged. A registry removes the factory edit.</span></button>
+    <button class="fc" type="button"><span class="q">Simplify: Bob owes Shubh 50, Tom owes Bob 50.</span><span class="a">Net: Shubh +50, Bob 0, Tom −50. Match max creditor with max debtor → Tom pays Shubh 50.</span></button>
+    <button class="fc" type="button"><span class="q">Why poll, update, then offer again?</span><span class="a">A <code>PriorityQueue</code> does not re-sort when a key changes. Remove the user before its net changes.</span></button>
+    <button class="fc" type="button"><span class="q">Is greedy optimal?</span><span class="a">No. It gives at most n − 1 payments. The true minimum is NP-hard (it needs zero-sum subsets).</span></button>
+    <button class="fc" type="button"><span class="q">Name two real bugs in this code.</span><span class="a">Non-member or a new <code>User</code> object with the same id → NPE (no <code>equals</code>/<code>hashCode</code>). <code>!= 100.0</code> rejects valid percents. Also <code>double</code> money.</span></button>
+  </div>
+</div>
+<footer class="prose">Notes for revision. Code in <code>src/main/java/org/nailyourinterview/lld/splitwise</code> (from shubhkpatel/Low-Level-Design). Layout inspired by the AlgoMaster LLD format.</footer>
+</section>
+
+</main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-java.min.js"></script>
+<script>
+(function(){
+/* ---------- theme ---------- */
+const root = document.documentElement;
+try { const t = localStorage.getItem('sl-theme'); if (t) root.dataset.theme = t; } catch(e){}
+document.getElementById('themeBtn').addEventListener('click', () => {
+  const dark = root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+  root.dataset.theme = dark ? 'light' : 'dark';
+  try { localStorage.setItem('sl-theme', root.dataset.theme); } catch(e){}
+});
+
+/* ---------- toc, scrollspy, progress ---------- */
+document.getElementById('mtoc').innerHTML = document.getElementById('toc').innerHTML.replace(/<h4>.*?<\/h4>/,'');
+const links = [...document.querySelectorAll('#toc a')];
+const obs = new IntersectionObserver(es => {
+  es.forEach(e => { if (e.isIntersecting) links.forEach(a => a.classList.toggle('active', a.getAttribute('href') === '#' + e.target.id)); });
+}, { rootMargin: '-30% 0px -65% 0px' });
+document.querySelectorAll('main section').forEach(s => obs.observe(s));
+const bar = document.getElementById('progress');
+addEventListener('scroll', () => {
+  const h = document.documentElement.scrollHeight - innerHeight;
+  bar.style.width = (h > 0 ? scrollY / h * 100 : 0) + '%';
+}, { passive: true });
+
+/* ---------- copy buttons ---------- */
+document.querySelectorAll('.code .copy').forEach(b => b.addEventListener('click', () => {
+  const txt = b.closest('.code').querySelector('code').innerText;
+  navigator.clipboard && navigator.clipboard.writeText(txt).then(() => { b.textContent = 'Copied'; setTimeout(() => b.textContent = 'Copy', 1200); });
+}));
+
+/* ---------- SVG diagram engine (miro-style) ---------- */
+const NS = 'http://www.w3.org/2000/svg';
+const FONT = "Inter, 'Segoe UI', Arial, sans-serif";
+const MONO = "'JetBrains Mono', Consolas, 'Courier New', monospace";
+function el(tag, attrs, parent){ const n = document.createElementNS(NS, tag); for (const k in attrs) n.setAttribute(k, attrs[k]); if (parent) parent.appendChild(n); return n; }
+function txt(parent, x, y, s, attrs){ const t = el('text', Object.assign({x, y, style: 'font-variant-ligatures:none'}, attrs || {}), parent); t.textContent = s; return t; }
+
+function setupCanvas(svg){
+  const defs = el('defs', {}, svg);
+  const pat = el('pattern', {id: svg.id + '-dots', width: 22, height: 22, patternUnits: 'userSpaceOnUse'}, defs);
+  el('circle', {cx: 2, cy: 2, r: 1.2, fill: '#d5d9e0'}, pat);
+  const f = el('filter', {id: svg.id + '-sh', x: '-10%', y: '-10%', width: '130%', height: '140%'}, defs);
+  el('feDropShadow', {dx: 0, dy: 3, stdDeviation: 4, 'flood-color': '#1f2a44', 'flood-opacity': .14}, f);
+  const vb = svg.viewBox.baseVal;
+  el('rect', {x: 0, y: 0, width: vb.width, height: vb.height, fill: '#fbfbfc'}, svg);
+  el('rect', {x: 0, y: 0, width: vb.width, height: vb.height, fill: `url(#${svg.id}-dots)`}, svg);
+  return { edges: el('g', {}, svg), nodes: el('g', {}, svg), deco: el('g', {}, svg), labels: el('g', {}, svg) };
+}
+
+const PALETTE = {
+  yellow: ['#FFF6C7', '#FFD43B', '#8a6d00'],
+  blue:   ['#E3EEFF', '#7DAEF8', '#1d4f99'],
+  sky:    ['#EAF4FF', '#A8CCFB', '#1d4f99'],
+  green:  ['#E2F7E7', '#69C985', '#1b6b34'],
+  purple: ['#EFE7FF', '#A98BF5', '#4b2ea3'],
+  orange: ['#FFEADB', '#FFA463', '#8a3b00'],
+  red:    ['#FFE3E3', '#F27474', '#8f1d1d'],
+  teal:   ['#DBF7EF', '#45C9A4', '#0d6650'],
+  pink:   ['#FDE6F4', '#EA82C0', '#8a1e5c'],
+  gray:   ['#EFF1F4', '#A9B1BD', '#3d4450']
+};
+
+function classBox(g, svgId, b){
+  const [body, head, ink] = PALETTE[b.c];
+  const LH = 17, PAD = 8, headH = b.st ? 48 : 34;
+  const fH = b.f.length ? b.f.length * LH + PAD * 2 : 0;
+  const mH = b.m.length ? b.m.length * LH + PAD * 2 : 0;
+  const h = headH + fH + mH;
+  const grp = el('g', {transform: `translate(${b.x},${b.y})`, filter: `url(#${svgId}-sh)`}, g);
+  el('rect', {width: b.w, height: h, rx: 12, fill: body, stroke: head, 'stroke-width': 1.5}, grp);
+  el('path', {d: `M0 12 A12 12 0 0 1 12 0 H${b.w - 12} A12 12 0 0 1 ${b.w} 12 V${headH} H0 Z`, fill: head}, grp);
+  if (b.st) txt(grp, b.w / 2, 18, b.st, {'text-anchor': 'middle', 'font-family': FONT, 'font-size': 11.5, 'font-style': 'italic', fill: '#1f2328', opacity: .75});
+  txt(grp, b.w / 2, b.st ? 38 : 23, b.name, {'text-anchor': 'middle', 'font-family': FONT, 'font-size': 16, 'font-weight': 800, fill: '#1f2328', 'font-style': b.abs ? 'italic' : 'normal'});
+  let y = headH;
+  if (b.f.length){
+    b.f.forEach((s, i) => txt(grp, 12, y + PAD + LH * (i + 1) - 4, s, {'font-family': MONO, 'font-size': 12.5, fill: ink}));
+    y += fH;
+    if (b.m.length) el('line', {x1: 0, y1: y, x2: b.w, y2: y, stroke: head, 'stroke-width': 1}, grp);
+  }
+  b.m.forEach((s, i) => txt(grp, 12, y + PAD + LH * (i + 1) - 4, s, {'font-family': MONO, 'font-size': 12.5, fill: '#1f2328'}));
+  b.h = h;
+}
+
+function roundedPath(pts, r){
+  if (pts.length < 3) return `M${pts[0][0]} ${pts[0][1]} L${pts[1][0]} ${pts[1][1]}`;
+  let d = `M${pts[0][0]} ${pts[0][1]}`;
+  for (let i = 1; i < pts.length - 1; i++){
+    const [px, py] = pts[i - 1], [cx, cy] = pts[i], [nx, ny] = pts[i + 1];
+    const l1 = Math.hypot(cx - px, cy - py), l2 = Math.hypot(nx - cx, ny - cy);
+    const rr = Math.min(r, l1 / 2, l2 / 2);
+    const ax = cx - (cx - px) / l1 * rr, ay = cy - (cy - py) / l1 * rr;
+    const bx = cx + (nx - cx) / l2 * rr, by = cy + (ny - cy) / l2 * rr;
+    d += ` L${ax} ${ay} Q${cx} ${cy} ${bx} ${by}`;
+  }
+  const last = pts[pts.length - 1];
+  return d + ` L${last[0]} ${last[1]}`;
+}
+function unit(a, b){ const l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; return [(b[0] - a[0]) / l, (b[1] - a[1]) / l]; }
+
+function edge(L, e){
+  const color = e.color || '#4a5263';
+  const dashed = e.kind === 'dep';
+  el('path', {d: roundedPath(e.p, 14), fill: 'none', stroke: color, 'stroke-width': 1.8, 'stroke-dasharray': dashed ? '6 5' : 'none', 'stroke-linecap': 'round'}, L.edges);
+  const p0 = e.p[0], p1 = e.p[1], pn = e.p[e.p.length - 1], pm = e.p[e.p.length - 2];
+  if (e.kind === 'comp' || e.kind === 'agg'){
+    const [ux, uy] = unit(p0, p1), vx = -uy, vy = ux;
+    const pt = (a, b) => `${p0[0] + ux * a + vx * b},${p0[1] + uy * a + vy * b}`;
+    el('polygon', {points: [pt(0, 0), pt(9, 6), pt(18, 0), pt(9, -6)].join(' '), fill: e.kind === 'comp' ? color : '#ffffff', stroke: color, 'stroke-width': 1.6}, L.deco);
+  }
+  if (e.kind === 'inh'){
+    const [ux, uy] = unit(pm, pn), vx = -uy, vy = ux;
+    const pt = (a, b) => `${pn[0] - ux * a + vx * b},${pn[1] - uy * a + vy * b}`;
+    el('polygon', {points: [pt(0, 0), pt(16, 9), pt(16, -9)].join(' '), fill: '#ffffff', stroke: color, 'stroke-width': 1.6}, L.deco);
+  }
+  if (e.kind === 'dep' || e.kind === 'assoc'){
+    const [ux, uy] = unit(pm, pn), vx = -uy, vy = ux;
+    const pt = (a, b) => `${pn[0] - ux * a + vx * b},${pn[1] - uy * a + vy * b}`;
+    el('polyline', {points: [pt(12, 7), pt(0, 0), pt(12, -7)].join(' '), fill: 'none', stroke: color, 'stroke-width': 1.8, 'stroke-linejoin': 'round', 'stroke-linecap': 'round'}, L.deco);
+  }
+  if (e.kind === 'flow'){
+    const [ux, uy] = unit(pm, pn), vx = -uy, vy = ux;
+    const pt = (a, b) => `${pn[0] - ux * a + vx * b},${pn[1] - uy * a + vy * b}`;
+    el('polygon', {points: [pt(0, 0), pt(12, 6), pt(12, -6)].join(' '), fill: color}, L.deco);
+  }
+  if (e.kind === 'merge') el('circle', {cx: pn[0], cy: pn[1], r: 4, fill: color}, L.deco);
+  if (e.label) label(L, e.label[0], e.label[1], e.label[2], e.labelColor, e.labelSize);
+}
+function label(L, x, y, s, color, size){
+  const t = txt(L.labels, x, y + (size ? size / 3 : 4), s, {'text-anchor': 'middle', 'font-family': FONT, 'font-size': size || 12, 'font-weight': 600, fill: color || '#3d4450'});
+  const bb = t.getBBox();
+  const r = el('rect', {x: bb.x - 7, y: bb.y - 3, width: bb.width + 14, height: bb.height + 6, rx: 9, fill: '#ffffff', stroke: '#d9dde4'});
+  L.labels.insertBefore(r, t);
+}
+function sticky(L, svgId, x, y, w, h, color, title, lines, rot, fs){
+  fs = fs || 13;
+  const g = el('g', {transform: `translate(${x},${y}) rotate(${rot || 0})`, filter: `url(#${svgId}-sh)`}, L.nodes);
+  el('rect', {width: w, height: h, rx: 4, fill: color}, g);
+  txt(g, 14, 12 + fs + 1, title, {'font-family': FONT, 'font-size': fs + 1, 'font-weight': 800, fill: '#1f2328'});
+  lines.forEach((s, i) => txt(g, 14, 24 + fs * 2 + i * fs * 1.45, s, {'font-family': FONT, 'font-size': fs, fill: '#2f3540'}));
+  return g;
+}
+
+/* ---------- class diagram ---------- */
+(function(){
+  const svg = document.getElementById('classSvg');
+  const L = setupCanvas(svg);
+  txt(L.labels, 40, 34, 'Splitwise — Class Diagram', {'font-family': FONT, 'font-size': 20, 'font-weight': 800, fill: '#1f2328'});
+  const boxes = [
+    {name: 'GroupService', st: '«service»', x: 60, y: 70, w: 470, c: 'yellow', f: ['- repo: GroupRepository', '- expenseService: ExpenseService', '- simplifier: DebtSimplificationService'], m: ['+ createGroup(name, members): String', '+ addMember(groupId, user)', '+ addExpense(groupId, desc, amt, paidBy, users, type, meta)', '+ simplifyDebts(groupId)', '+ printBalances(groupId)', '- get(id): Group']},
+    {name: 'GroupRepository', st: '«interface»', abs: true, x: 600, y: 70, w: 320, c: 'gray', f: [], m: ['+ findById(id): Optional<Group>', '+ save(group)']},
+    {name: 'InMemoryGroupRepository', x: 600, y: 230, w: 320, c: 'gray', f: ['- store: Map<String, Group>'], m: ['+ findById(id)', '+ save(group)']},
+    {name: 'DebtSimplificationService', st: '«service»', x: 1000, y: 160, w: 340, c: 'yellow', f: [], m: ['+ simplifyDebts(group)']},
+    {name: 'ExpenseService', st: '«service»', x: 60, y: 420, w: 470, c: 'yellow', f: ['- balanceSheetService: BalanceSheetService'], m: ['+ addExpense(group, desc, amount, paidBy, users, type, meta)']},
+    {name: 'BalanceSheetService', st: '«service»', x: 60, y: 600, w: 470, c: 'yellow', f: [], m: ['+ updateBalances(group, paidBy, splits)']},
+    {name: 'SplitStrategyFactory', x: 60, y: 760, w: 300, c: 'orange', f: [], m: ['+ getStrategy(type)   {static}']},
+    {name: 'SplitType', st: '«enum»', x: 420, y: 770, w: 200, c: 'gray', f: ['EQUAL, PERCENTAGE'], m: []},
+    {name: 'SplitStrategy', st: '«interface»', abs: true, x: 60, y: 900, w: 470, c: 'orange', f: [], m: ['+ split(amount, users, meta): List<Split>']},
+    {name: 'EqualSplitStrategy', x: 60, y: 1050, w: 220, c: 'orange', f: [], m: ['+ split(...)']},
+    {name: 'PercentageSplitStrategy', x: 310, y: 1050, w: 220, c: 'orange', f: [], m: ['+ split(...)']},
+    {name: 'Group', x: 640, y: 420, w: 380, c: 'green', f: ['- id: String', '- name: String', '- members: List<User>', '- expenses: List<Expense>', '- balanceSheets: Map<User, BalanceSheet>'], m: ['+ addMember(user)', '+ addExpense(expense)', '+ getBalanceSheet(user): BalanceSheet']},
+    {name: 'Expense', x: 640, y: 700, w: 380, c: 'blue', f: ['- description: String', '- amount: double', '- paidBy: User', '- splits: List<Split>', '- splitType: SplitType'], m: []},
+    {name: 'Split', x: 640, y: 900, w: 380, c: 'blue', f: ['- user: User', '- amount: double'], m: []},
+    {name: 'BalanceSheet', x: 1100, y: 420, w: 420, c: 'purple', f: ['- totalPaid: double', '- totalExpense: double', '- balances: Map<User, Double>   // + get, - owe'], m: ['+ addTotalPaid(amount)', '+ addTotalExpense(amount)', '+ addBalance(other, amount)', '+ clearBalances()', '+ print(me)']},
+    {name: 'User', x: 1100, y: 760, w: 300, c: 'sky', f: ['- id: String', '- name: String'], m: []}
+  ];
+  boxes.forEach(b => classBox(L.nodes, svg.id, b));
+  /* GroupService 70..303, Repo 70..168, InMem 230..347, Debt 160..241, Expense svc 420..534, BSS 600..681,
+     Factory 760..827, SplitType 770..851, Strategy 900..981, Equal/Pct 1050..1117,
+     Group 420..622, Expense 700..835, Split 900..984, BalanceSheet 420..622, User 760..844 */
+  const E = [
+    {kind: 'agg',  p: [[530, 110], [600, 110]], label: [565, 110, 'has a']},
+    {kind: 'inh',  p: [[760, 230], [760, 168]], label: [760, 199, 'is a']},
+    {kind: 'agg',  p: [[530, 200], [1000, 200]], label: [960, 200, 'has a']},
+    {kind: 'agg',  p: [[760, 347], [760, 420]], label: [760, 384, 'has many']},
+    {kind: 'agg',  p: [[220, 303], [220, 420]], label: [220, 362, 'has a']},
+    {kind: 'agg',  p: [[220, 534], [220, 600]], label: [220, 567, 'has a']},
+    {kind: 'dep',  p: [[60, 500], [30, 500], [30, 790], [60, 790]], label: [30, 650, 'uses']},
+    {kind: 'dep',  p: [[360, 805], [420, 805]], label: [390, 805, 'uses']},
+    {kind: 'dep',  p: [[200, 827], [200, 900]], label: [200, 864, 'creates']},
+    {kind: 'inh',  p: [[170, 1050], [170, 981]], label: [170, 1016, 'is a']},
+    {kind: 'inh',  p: [[420, 1050], [420, 981]], label: [420, 1016, 'is a']},
+    {kind: 'dep',  p: [[530, 940], [640, 940]], label: [585, 940, 'creates']},
+    {kind: 'dep',  p: [[530, 480], [590, 480], [590, 730], [640, 730]], label: [590, 610, 'creates']},
+    {kind: 'comp', p: [[920, 622], [920, 700]], label: [920, 661, 'has many']},
+    {kind: 'comp', p: [[830, 835], [830, 900]], label: [830, 868, 'has many']},
+    {kind: 'comp', p: [[1020, 520], [1100, 520]], label: [1060, 520, 'has many']},
+    {kind: 'agg',  p: [[1020, 600], [1060, 600], [1060, 790], [1100, 790]], label: [1060, 700, 'has many']},
+    {kind: 'assoc', p: [[1020, 820], [1100, 820]], label: [1060, 820, 'has a']},
+    {kind: 'assoc', p: [[1020, 950], [1250, 950], [1250, 844]], label: [1250, 900, 'has a']},
+    {kind: 'assoc', p: [[1460, 622], [1460, 800], [1400, 800]], label: [1460, 710, 'has many']},
+    {kind: 'dep',  p: [[1170, 241], [1170, 420]], label: [1170, 330, 'uses']}
+  ];
+  E.forEach(e => edge(L, e));
+
+  // legend
+  const lg = el('g', {transform: 'translate(1280,890)', filter: `url(#${svg.id}-sh)`}, L.nodes);
+  el('rect', {width: 300, height: 246, rx: 12, fill: '#ffffff', stroke: '#dfe3ea'}, lg);
+  txt(lg, 16, 28, 'Legend', {'font-family': FONT, 'font-size': 14, 'font-weight': 800, fill: '#1f2328'});
+  const LL = {edges: lg, deco: lg, labels: lg};
+  const items = [['comp', 'Composition (owns, same lifetime)'], ['agg', 'Aggregation (has, lives outside)'], ['assoc', 'Association (knows about)'], ['dep', 'Dependency (uses / creates)'], ['inh', 'Inheritance (is-a)']];
+  items.forEach(([k, s], i) => {
+    const y = 60 + i * 36;
+    edge(LL, {kind: k, p: [[18, y], [72, y]]});
+    txt(lg, 86, y + 4, s, {'font-family': FONT, 'font-size': 12.5, fill: '#2f3540'});
+  });
+  txt(lg, 16, 234, '- private   + public   # protected', {'font-family': MONO, 'font-size': 11.5, fill: '#5b6471'});
+
+  // sticky notes
+  sticky(L, svg.id, 1360, 60, 220, 140, '#FFF3A3', '⚖ Both sides', ['A owes B x:', 'A.balances[B] −= x', 'B.balances[A] += x'], 1, 14);
+  sticky(L, svg.id, 640, 1020, 380, 116, '#D3F5E1', '🧮 Simplify', ['net = sum of my balances', 'max creditor ↔ max debtor', 'until one heap is empty'], -1, 15);
+})();
+
+/* ---------- flowchart ---------- */
+(function(){
+  const svg = document.getElementById('flowSvg');
+  const L = setupCanvas(svg);
+  txt(L.labels, 30, 34, 'DebtSimplificationService.simplifyDebts(group)', {'font-family': FONT, 'font-size': 20, 'font-weight': 800, fill: '#1f2328'});
+  function node(n){
+    const [body, head] = PALETTE[n.c];
+    const g = el('g', {filter: `url(#${svg.id}-sh)`}, L.nodes);
+    const x = n.x - n.w / 2, y = n.y - n.h / 2;
+    if (n.shape === 'dec') el('polygon', {points: `${n.x},${y} ${x + n.w},${n.y} ${n.x},${y + n.h} ${x},${n.y}`, fill: body, stroke: head, 'stroke-width': 2}, g);
+    else el('rect', {x, y, width: n.w, height: n.h, rx: n.shape === 'term' ? n.h / 2 : 10, fill: body, stroke: head, 'stroke-width': 2}, g);
+    const lines = n.t.split('\n');
+    lines.forEach((s, i) => txt(g, n.x, n.y + 5 + (i - (lines.length - 1) / 2) * 18, s, {'text-anchor': 'middle', 'font-family': n.mono ? MONO : FONT, 'font-size': n.mono ? 13 : 14, 'font-weight': n.mono ? 500 : 700, fill: '#1f2328'}));
+  }
+  const N = [
+    {x: 480, y: 68,  w: 300, h: 46, shape: 'term', c: 'purple', t: 'simplifyDebts(group)', mono: true},
+    {x: 480, y: 150, w: 360, h: 58, c: 'blue', t: "net[u] = sum of u's balances\nthen clear u's balances", mono: true},
+    {x: 480, y: 245, w: 360, h: 58, c: 'blue', t: 'creditors = max-heap (net > 0)\ndebtors   = min-heap (net < 0)', mono: true},
+    {x: 480, y: 370, w: 340, h: 110, shape: 'dec', c: 'yellow', t: 'creditors and debtors\nboth non-empty ?', mono: true},
+    {x: 830, y: 370, w: 180, h: 46, shape: 'term', c: 'green', t: 'done', mono: true},
+    {x: 480, y: 480, w: 360, h: 58, c: 'blue', t: 'c = creditors.poll()  // biggest +\nd = debtors.poll()    // biggest −', mono: true},
+    {x: 480, y: 570, w: 360, h: 46, c: 'orange', t: 'x = min(net[c], −net[d])', mono: true},
+    {x: 480, y: 660, w: 360, h: 58, c: 'purple', t: 'sheet[c].addBalance(d, +x)\nsheet[d].addBalance(c, −x)', mono: true},
+    {x: 480, y: 750, w: 360, h: 58, c: 'blue', t: 'net[c] −= x\nnet[d] += x', mono: true},
+    {x: 480, y: 850, w: 360, h: 58, c: 'green', t: 'offer c again if net[c] > 0\noffer d again if net[d] < 0', mono: true}
+  ];
+  N.forEach(node);
+  sticky(L, svg.id, 20, 440, 210, 140, '#FFE3E3', '⚠ Greedy', ['≤ n − 1 payments,', 'not always the', 'minimum (NP-hard)'], 0, 14);
+  sticky(L, svg.id, 700, 460, 280, 160, '#FFF3A3', '📉 Main example', ['Bob → Shubh 50', 'Tom → Bob 50', 'net: S +50, B 0, T −50', '1 round: Tom → Shubh 50'], 0, 14);
+  sticky(L, svg.id, 700, 690, 280, 120, '#D3F5E1', '🔁 Why poll, then offer?', ['a heap does not re-sort', 'when a key changes'], 0, 14);
+  const F = [
+    {kind: 'flow', p: [[480, 91], [480, 121]]},
+    {kind: 'flow', p: [[480, 179], [480, 216]]},
+    {kind: 'flow', p: [[480, 274], [480, 315]]},
+    {kind: 'flow', p: [[650, 370], [740, 370]], label: [695, 370, 'no'], labelColor: '#3d4450'},
+    {kind: 'flow', p: [[480, 425], [480, 451]], label: [506, 438, 'yes'], labelColor: '#1a7f37'},
+    {kind: 'flow', p: [[480, 509], [480, 547]]},
+    {kind: 'flow', p: [[480, 593], [480, 631]]},
+    {kind: 'flow', p: [[480, 689], [480, 721]]},
+    {kind: 'flow', p: [[480, 779], [480, 821]]},
+    {kind: 'flow', p: [[300, 850], [255, 850], [255, 370], [310, 370]], label: [255, 650, 'next round'], labelColor: '#5b5bd6'}
+  ];
+  F.forEach(e => edge(L, e));
+})();
+
+/* ---------- interview flow ---------- */
+(function(){
+  const svg = document.getElementById('stepsSvg');
+  const L = setupCanvas(svg);
+  const X = 440, W = 260, H = 64;
+  const steps = [
+    {t: 'Understand the system', c: 'gray', y: 40, href: '#overview'},
+    {t: 'Requirement gathering', c: 'yellow', y: 170, href: '#requirements'},
+    {t: 'Core entities + breakdown', c: 'red', y: 320, href: '#entities'},
+    {t: 'Class diagram with flow', c: 'purple', y: 470, href: '#classes'},
+    {t: 'Working code', c: 'gray', y: 610, href: '#code'}
+  ];
+  steps.forEach((st, i) => {
+    const [body, head] = PALETTE[st.c];
+    const a = el('a', {href: st.href}, L.nodes);
+    const g = el('g', {filter: `url(#${svg.id}-sh)`, style: 'cursor:pointer'}, a);
+    el('rect', {x: X, y: st.y, width: W, height: H, rx: 10, fill: body, stroke: head, 'stroke-width': 2.5}, g);
+    txt(g, X + W / 2, st.y + H / 2 + 6, st.t, {'text-anchor': 'middle', 'font-family': FONT, 'font-size': 17, 'font-weight': 800, fill: '#1f2328'});
+    if (i) edge(L, {kind: 'flow', p: [[X + W / 2, steps[i - 1].y + H], [X + W / 2, st.y]], color: '#1f2328'});
+  });
+
+  // the 3 requirement buckets
+  const ry = 170 + H / 2;
+  sticky(L, svg.id, 790, 20, 380, 110, '#FFF3A3', '① Extensibility (new features)', ['Split type → SplitStrategy', 'Settle up, edit → Command', 'Storage → GroupRepository'], 0);
+  sticky(L, svg.id, 790, 150, 380, 110, '#D3F5E1', '② Dynamic (user input)', ['Groups, members at runtime', 'Expenses with type + percents', 'Validate members, amount, %'], 0);
+  sticky(L, svg.id, 790, 280, 380, 110, '#FFE3E3', '③ High traffic (concurrency)', ['Per group: two adds at once', 'Lock per group / DB transaction', 'Idempotency key on add'], 0);
+  [75, 205, 335].forEach(y => edge(L, {kind: 'dep', p: [[X + W, ry], [745, ry], [745, y], [790, y]]}));
+
+  // side notes per step
+  sticky(L, svg.id, 40, 22, 340, 100, '#E3EEFF', 'Picture a trip', ['Pay → split → owe → simplify', 'Where does “A owes B” live?'], 0);
+  edge(L, {kind: 'dep', p: [[X, 72], [380, 72]]});
+  sticky(L, svg.id, 40, 290, 340, 120, '#EFE7FF', 'Nouns → classes', ['User, Group, Expense, Split', 'BalanceSheet, SplitStrategy', '4 services + a repository'], 0);
+  edge(L, {kind: 'dep', p: [[X, 352], [380, 352]]});
+  sticky(L, svg.id, 790, 455, 380, 92, '#EFF1F4', 'Relationships + flow', ['has many → Group has Expenses', 'is a → Equal is a SplitStrategy'], 0);
+  edge(L, {kind: 'dep', p: [[X + W, 502], [790, 502]]});
+  sticky(L, svg.id, 790, 595, 380, 92, '#EFF1F4', 'Build bottom-up', ['User, Split, Expense → Strategies', '→ Sheet, Group → Services → Main'], 0);
+  edge(L, {kind: 'dep', p: [[X + W, 642], [790, 642]]});
+
+  // which round covers which steps
+  txt(L.labels, 40, 560, 'LLD round', {'font-family': FONT, 'font-size': 14, 'font-weight': 800, fill: '#5b5bd6'});
+  txt(L.labels, 40, 582, 'Requirements → Entities → Class diagram', {'font-family': FONT, 'font-size': 13, fill: '#2f3540'});
+  txt(L.labels, 40, 620, 'Machine coding round', {'font-family': FONT, 'font-size': 14, 'font-weight': 800, fill: '#e8590c'});
+  txt(L.labels, 40, 642, 'Entities → Working code', {'font-family': FONT, 'font-size': 13, fill: '#2f3540'});
+})();
+
+/* ---------- revision diagram ---------- */
+(function(){
+  const svg = document.getElementById('revSvg');
+  const L = setupCanvas(svg);
+  const FLOW = '#5b5bd6', STRUCT = '#9aa3b2';
+  function box(x, y, w, h, c, name, sub){
+    const [body, head] = PALETTE[c];
+    const g = el('g', {filter: `url(#${svg.id}-sh)`}, L.nodes);
+    el('rect', {x, y, width: w, height: h, rx: 12, fill: body, stroke: head, 'stroke-width': 2.5}, g);
+    txt(g, x + w / 2, y + (sub ? 32 : h / 2 + 7), name, {'text-anchor': 'middle', 'font-family': FONT, 'font-size': 20, 'font-weight': 800, fill: '#1f2328'});
+    if (sub) txt(g, x + w / 2, y + 56, sub, {'text-anchor': 'middle', 'font-family': MONO, 'font-size': 14, fill: '#3d4450'});
+  }
+  box(20, 40, 200, 72, 'gray', 'Client', 'Main');
+  box(380, 40, 240, 72, 'yellow', 'GroupService', 'find group by id');
+  box(790, 40, 190, 72, 'yellow', 'ExpenseService', 'build expense');
+  box(20, 220, 200, 72, 'green', 'Group', 'expenses · sheets');
+  box(360, 220, 280, 72, 'yellow', 'BalanceSheetService', 'both sides');
+  box(790, 220, 190, 72, 'orange', 'SplitStrategy', 'equal · percent');
+  box(360, 400, 280, 72, 'purple', 'BalanceSheet', 'Map User → ±amount');
+
+  // structure: has-a (grey)
+  edge(L, {kind: 'comp', p: [[120, 292], [120, 436], [360, 436]], color: STRUCT});
+
+  // flow: numbered calls for one addExpense (purple)
+  [
+    {p: [[220, 76], [380, 76]], label: [300, 76, '1 · addExpense()'], size: 14},
+    {p: [[620, 76], [790, 76]], label: [705, 76, '2 · addExpense(group)'], size: 13},
+    {p: [[940, 112], [940, 220]], label: [940, 166, '3 · split()'], size: 14},
+    {p: [[810, 112], [810, 160], [120, 160], [120, 220]], label: [300, 160, '4 · group.addExpense()'], size: 14},
+    {p: [[860, 112], [860, 190], [560, 190], [560, 220]], label: [710, 190, '5 · updateBalances()'], size: 14},
+    {p: [[500, 292], [500, 400]], label: [500, 346, '6 · addBalance() × 2'], size: 14}
+  ].forEach(e => edge(L, {kind: 'flow', p: e.p, color: FLOW, label: e.label, labelColor: FLOW, labelSize: e.size || 16}));
+
+  // notes
+  sticky(L, svg.id, 720, 400, 250, 116, '#FFF3A3', '💡 Key idea', ['Strategy splits.', 'Each share: −x on one', 'side, +x on the other.'], 1, 15);
+  sticky(L, svg.id, 40, 480, 280, 100, '#D3F5E1', '🧮 Later: simplify', ['net per user, then', 'max creditor ↔ max debtor'], -1, 15);
+
+  // legend
+  const lg = el('g', {transform: 'translate(40,610)'}, L.labels);
+  el('line', {x1: 0, y1: 10, x2: 44, y2: 10, stroke: STRUCT, 'stroke-width': 2.5}, lg);
+  txt(lg, 54, 16, 'structure: has-a', {'font-family': FONT, 'font-size': 17, fill: '#3d4450'});
+  el('line', {x1: 0, y1: 42, x2: 44, y2: 42, stroke: FLOW, 'stroke-width': 2.5}, lg);
+  txt(lg, 54, 48, '1 → 6  calls for one addExpense', {'font-family': FONT, 'font-size': 17, 'font-weight': 700, fill: FLOW});
+})();
+
+/* ---------- PNG export + fullscreen ---------- */
+document.querySelectorAll('[data-png]').forEach(b => b.addEventListener('click', () => {
+  const svg = document.getElementById(b.dataset.png);
+  const vb = svg.viewBox.baseVal, k = 2;
+  const clone = svg.cloneNode(true);
+  clone.setAttribute('width', vb.width); clone.setAttribute('height', vb.height);
+  const src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(new XMLSerializer().serializeToString(clone));
+  const img = new Image();
+  img.onload = () => {
+    const c = document.createElement('canvas'); c.width = vb.width * k; c.height = vb.height * k;
+    const ctx = c.getContext('2d'); ctx.fillStyle = '#fbfbfc'; ctx.fillRect(0, 0, c.width, c.height);
+    ctx.drawImage(img, 0, 0, c.width, c.height);
+    c.toBlob(blob => { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = b.dataset.name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); });
+  };
+  img.src = src;
+}));
+document.querySelectorAll('[data-fs]').forEach(b => b.addEventListener('click', () => {
+  const f = document.getElementById(b.dataset.fs);
+  if (document.fullscreenElement) document.exitFullscreen(); else f.requestFullscreen && f.requestFullscreen();
+}));
+
+/* ---------- simulator (mirrors ExpenseService + strategies + BalanceSheetService + DebtSimplificationService) ---------- */
+const USERS = ['Shubh', 'Bob', 'Tom', 'Jake'];
+const POS = {Shubh: [80, 70], Bob: [340, 70], Tom: [340, 230], Jake: [80, 230]};
+const wLog = document.getElementById('wLog');
+const $ = id => document.getElementById(id);
+let SH;
+const money = v => (Math.round(v * 100) / 100).toFixed(2);
+function wlog(html, call, cls){ const li = document.createElement('li'); if (cls) li.className = cls; li.innerHTML = html + (call ? `<span class="call">${call}</span>` : ''); wLog.prepend(li); while (wLog.children.length > 40) wLog.lastChild.remove(); }
+function addBalance(me, other, amt){                         // BalanceSheet.addBalance()
+  const b = SH[me].bal, v = (b.get(other) || 0) + amt;
+  if (Math.abs(v) < 1e-6) b.delete(other); else b.set(other, v);
+}
+function splitEqual(amount, users){ const share = amount / users.length; return users.map(u => ({user: u, amount: share})); }
+function splitPercent(amount, users, meta){
+  const total = Object.values(meta).reduce((s, v) => s + v, 0);
+  if (total !== 100.0) throw new Error(`Total percent should be 100 (got ${total})`);
+  return users.map(u => ({user: u, amount: amount * (meta[u] || 0) / 100}));
+}
+function updateBalances(paidBy, splits){                     // BalanceSheetService.updateBalances()
+  SH[paidBy].paid += splits.reduce((s, x) => s + x.amount, 0);
+  splits.forEach(({user, amount}) => {
+    SH[user].exp += amount;
+    if (user !== paidBy){ addBalance(user, paidBy, -amount); addBalance(paidBy, user, amount); }
+  });
+}
+function addExpense(desc, amount, paidBy, users, type, meta){
+  let splits;
+  try { splits = type === 'EQUAL' ? splitEqual(amount, users) : splitPercent(amount, users, meta); }
+  catch (e){ wlog(`❌ ${desc}: ${e.message}. Nothing changed.`, `PercentageSplitStrategy: totalPercent != 100.0 → IllegalArgumentException`, 'alert'); return; }
+  updateBalances(paidBy, splits);
+  const parts = splits.map(s => `${s.user} ${money(s.amount)}`).join(', ');
+  wlog(`<b>${desc}</b>: ${paidBy} paid ${money(amount)} · ${parts}`, `groupService.addExpense(goa, "${desc}", ${amount}, ${paidBy.toLowerCase()}, [${users.join(', ')}], ${type}, ${type === 'EQUAL' ? 'null' : 'meta'})`);
+}
+function simplify(){                                         // DebtSimplificationService.simplifyDebts()
+  const net = {};
+  USERS.forEach(u => { net[u] = [...SH[u].bal.values()].reduce((s, v) => s + v, 0); SH[u].bal.clear(); });
+  const before = USERS.map(u => `${u} ${net[u] > 0 ? '+' : ''}${money(net[u])}`).join(', ');
+  let cred = USERS.filter(u => net[u] > 0), debt = USERS.filter(u => net[u] < 0), rounds = 0;
+  while (cred.length && debt.length){
+    cred.sort((a, b) => net[b] - net[a]); debt.sort((a, b) => net[a] - net[b]);
+    const c = cred.shift(), d = debt.shift(), x = Math.min(net[c], -net[d]);
+    addBalance(c, d, x); addBalance(d, c, -x);
+    net[c] -= x; net[d] += x; rounds++;
+    if (net[c] > 0) cred.push(c);
+    if (net[d] < 0) debt.push(d);
+  }
+  wlog(`⇢ Simplified in ${rounds} round(s). Net: ${before}`, 'net per user → max creditor ↔ max debtor (two heaps)', 'reorder');
+}
+function render(){
+  const rows = USERS.map(u => {
+    const s = SH[u], net = [...s.bal.values()].reduce((a, v) => a + v, 0);
+    const cls = net < -1e-6 ? 'low' : '';
+    return `<tr><td><b>${u}</b></td><td>${money(s.paid)}</td><td>${money(s.exp)}</td><td class="${cls}">${net > 1e-6 ? '+' : ''}${money(net)}</td></tr>`;
+  }).join('');
+  $('wTable').innerHTML = `<thead><tr><th>Member</th><th>Paid</th><th>Expense</th><th>Net (+ get, − owe)</th></tr></thead><tbody>${rows}</tbody>`;
+
+  // graph: one arrow per pair, from the one who owes to the one who gets back
+  const g = $('wGraph');
+  let out = '<defs><marker id="wArr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="sw-ah"/></marker></defs>';
+  let any = false;
+  USERS.forEach((a, i) => USERS.slice(i + 1).forEach(b => {
+    const v = SH[a].bal.get(b) || 0;
+    if (Math.abs(v) < 1e-6) return;
+    any = true;
+    const [from, to] = v < 0 ? [a, b] : [b, a];
+    const [x1, y1] = POS[from], [x2, y2] = POS[to];
+    const len = Math.hypot(x2 - x1, y2 - y1), ux = (x2 - x1) / len, uy = (y2 - y1) / len;
+    const sx = x1 + ux * 34, sy = y1 + uy * 34, ex = x2 - ux * 36, ey = y2 - uy * 36;
+    const lx = x1 + (x2 - x1) * 0.38, ly = y1 + (y2 - y1) * 0.38;
+    out += `<line x1="${sx}" y1="${sy}" x2="${ex}" y2="${ey}" class="sw-ar" marker-end="url(#wArr)"/>`;
+    out += `<rect x="${lx - 30}" y="${ly - 11}" width="60" height="22" rx="11" class="sw-lb"/><text x="${lx}" y="${ly + 4}" class="sw-lt">${money(Math.abs(v))}</text>`;
+  }));
+  USERS.forEach(u => { const [x, y] = POS[u]; out += `<circle cx="${x}" cy="${y}" r="32" class="sw-nd"/><text x="${x}" y="${y + 5}" class="sw-nt">${u}</text>`; });
+  if (!any) out += '<text x="210" y="290" class="sw-nt" style="font-weight:500">all settled — add an expense</text>';
+  g.innerHTML = out;
+}
+function reset(){
+  SH = {}; USERS.forEach(u => SH[u] = {paid: 0, exp: 0, bal: new Map()});
+  wLog.innerHTML = '';
+  wlog('Group “Goa Trip” with Shubh, Bob, Tom, Jake.', 'groupService.createGroup("Goa Trip", List.of(shubh, bob, tom, jake))');
+  render();
+}
+$('wPaid').innerHTML = USERS.map(u => `<option>${u}</option>`).join('');
+$('wParts').innerHTML = USERS.map(u => `<label class="sw-p"><input type="checkbox" value="${u}" checked> ${u}<input type="number" class="sw-pct" data-u="${u}" value="25" hidden>%</label>`).join('');
+function syncType(){ const pct = $('wType').value === 'PERCENTAGE'; document.querySelectorAll('.sw-pct').forEach(i => i.hidden = !pct); $('wParts').classList.toggle('pct', pct); }
+$('wType').addEventListener('change', syncType); syncType();
+$('wAdd').addEventListener('click', () => {
+  const amount = parseFloat($('wAmt').value), desc = $('wDesc').value.trim() || 'Expense';
+  const users = [...document.querySelectorAll('#wParts input[type=checkbox]:checked')].map(c => c.value);
+  if (!(amount > 0) || !users.length){ wlog('❌ Need an amount above 0 and at least one participant. (The Java code does not check this.)', null, 'alert'); return; }
+  const meta = {}; users.forEach(u => meta[u] = parseFloat(document.querySelector(`.sw-pct[data-u="${u}"]`).value) || 0);
+  addExpense(desc, amount, $('wPaid').value, users, $('wType').value, meta);
+  render();
+});
+$('wSimp').addEventListener('click', () => { simplify(); render(); });
+$('wReset').addEventListener('click', reset);
+$('wMain').addEventListener('click', () => {
+  reset();
+  addExpense('Lunch Day-1', 100, 'Shubh', ['Shubh', 'Bob'], 'EQUAL');
+  addExpense('Lunch Day-2', 100, 'Bob', ['Bob', 'Tom'], 'EQUAL');
+  wlog('Now press <b>Simplify debts</b>.', 'groupService.simplifyDebts(goaGroupId)');
+  render();
+});
+reset();
+
+/* ---------- code explorer ---------- */
+(function(){
+  const data = JSON.parse(document.getElementById('repoFiles').textContent);
+  const byPath = {}; data.files.forEach(f => byPath[f.path] = f);
+  const MAIN = data.main || 'Main.java';
+  const tree = document.getElementById('ideTree'), tabsEl = document.getElementById('ideTabs');
+  const codeEl = document.getElementById('ideCode'), gut = document.getElementById('ideGutter');
+  const title = document.getElementById('ideTitle'), badge = document.getElementById('ideBadge');
+  document.getElementById('ideCnt').textContent = data.files.length;
+  let open = [], current = null;
+  const esc = t => t.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+
+  // build folder tree
+  const root = {dirs: {}, files: []};
+  data.files.forEach(f => {
+    const parts = f.path.split('/'); let n = root;
+    parts.slice(0, -1).forEach(d => n = n.dirs[d] = n.dirs[d] || {dirs: {}, files: []});
+    n.files.push(f.path);
+  });
+  function render(node, parent){
+    Object.keys(node.dirs).sort().forEach(d => {
+      const row = document.createElement('button'); row.type = 'button'; row.className = 'ide-row open';
+      row.innerHTML = `<span class="car">▸</span>📁 ${d}`;
+      const kids = document.createElement('div'); kids.className = 'ide-kids';
+      row.addEventListener('click', () => { kids.hidden = !kids.hidden; row.classList.toggle('open', !kids.hidden); });
+      parent.append(row, kids); render(node.dirs[d], kids);
+    });
+    node.files.sort().forEach(p => {
+      const row = document.createElement('button'); row.type = 'button'; row.className = 'ide-row'; row.dataset.path = p;
+      row.innerHTML = `<span class="car"></span>☕ ${p.split('/').pop()}` + (p === MAIN ? '<span class="mb">MAIN</span>' : '');
+      row.title = p;
+      row.addEventListener('click', () => show(p));
+      parent.appendChild(row);
+    });
+  }
+  render(root, tree);
+
+  function show(p){
+    if (!open.includes(p)) open.push(p);
+    current = p;
+    const f = byPath[p], code = f.code.replace(/\n$/, '');
+    codeEl.innerHTML = window.Prism ? Prism.highlight(code, Prism.languages.java, 'java') : esc(code);
+    gut.textContent = code.split('\n').map((_, i) => i + 1).join('\n');
+    document.getElementById('ideScroll').scrollTop = 0;
+    title.textContent = p.split('/').pop(); badge.hidden = p !== MAIN;
+    tree.querySelectorAll('.ide-row[data-path]').forEach(r => r.classList.toggle('on', r.dataset.path === p));
+    tabsEl.innerHTML = '';
+    open.forEach(q => {
+      const t = document.createElement('button'); t.type = 'button'; t.className = 'ide-tab' + (q === p ? ' on' : '');
+      t.innerHTML = `☕ ${q.split('/').pop()} <span class="x" title="Close">✕</span>`;
+      t.addEventListener('click', e => {
+        if (e.target.classList.contains('x')){
+          open = open.filter(x => x !== q);
+          if (!open.length) open = [MAIN];
+          show(q === current ? open[open.length - 1] : current);
+        } else show(q);
+      });
+      tabsEl.appendChild(t);
+    });
+  }
+  show(MAIN);
+
+  document.getElementById('ideCopy').addEventListener('click', e => {
+    navigator.clipboard && navigator.clipboard.writeText(byPath[current].code).then(() => { e.target.textContent = '✓'; setTimeout(() => e.target.textContent = '⧉', 1200); });
+  });
+  document.getElementById('ideFs').addEventListener('click', () => {
+    const ide = document.getElementById('ide');
+    if (document.fullscreenElement) document.exitFullscreen(); else ide.requestFullscreen && ide.requestFullscreen();
+  });
+  const outBox = document.getElementById('ideOut'), outPre = document.getElementById('ideOutPre'), outTab = document.getElementById('ideOutTab');
+  function toggleOut(force){ outBox.hidden = force === undefined ? !outBox.hidden : !force; outTab.classList.toggle('on', !outBox.hidden); }
+  outTab.addEventListener('click', () => { if (!outPre.textContent) outPre.textContent = data.output; toggleOut(); });
+  let timer = null;
+  document.getElementById('ideRun').addEventListener('click', () => {
+    clearInterval(timer); toggleOut(true);
+    const lines = data.output.split('\n'); let i = 0; outPre.textContent = '';
+    timer = setInterval(() => {
+      outPre.textContent += lines.slice(i, i + 12).join('\n') + '\n'; i += 12;
+      outPre.scrollTop = outPre.scrollHeight;
+      if (i >= lines.length) clearInterval(timer);
+    }, 30);
+  });
+})();
+
+/* ---------- flip cards ---------- */
+const fcs = [...document.querySelectorAll('.fc')];
+fcs.forEach(c => c.addEventListener('click', () => c.classList.toggle('open')));
+document.getElementById('fcAll').addEventListener('click', e => {
+  const show = fcs.some(c => !c.classList.contains('open'));
+  fcs.forEach(c => c.classList.toggle('open', show));
+  e.target.textContent = show ? 'Hide all answers' : 'Show all answers';
+});
+
+})();
+</script>
+<script src="problems.js"></script>
+<script src="site.js"></script>
+</body>
+</html>

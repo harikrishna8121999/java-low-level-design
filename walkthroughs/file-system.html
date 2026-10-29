@@ -1,0 +1,1767 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>File System LLD</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#ffffff; --bg-soft:#f7f8fa; --bg-card:#ffffff; --text:#1f2328; --muted:#5b6471; --border:#e4e7ec;
+  --accent:#5b5bd6; --accent-soft:#eef0ff; --accent-text:#4343b8;
+  --code-bg:#f6f8fa; --code-text:#24292f;
+  --ok:#1a7f37; --ok-soft:#e8f6ec; --bad:#cf222e; --bad-soft:#fdecee;
+  --warn:#9a6700; --warn-soft:#fff6dd; --info-soft:#eaf3ff; --info:#0b5cad;
+  --tok-kw:#cf222e; --tok-str:#0a3069; --tok-fn:#8250df; --tok-com:#6e7781; --tok-num:#0550ae; --tok-cls:#953800; --tok-ann:#116329;
+  --shadow:0 1px 2px rgba(16,24,40,.05),0 1px 3px rgba(16,24,40,.08);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f1115; --bg-soft:#151920; --bg-card:#171b22; --text:#e6e8eb; --muted:#9aa4b2; --border:#2a3039;
+    --accent:#8e8ff7; --accent-soft:#20223f; --accent-text:#b4b5ff;
+    --code-bg:#12161c; --code-text:#d6dbe1;
+    --ok:#4ac26b; --ok-soft:#12261a; --bad:#ff7b72; --bad-soft:#2d1517;
+    --warn:#e3b341; --warn-soft:#2a2210; --info-soft:#0f2136; --info:#79b8ff;
+    --tok-kw:#ff7b72; --tok-str:#a5d6ff; --tok-fn:#d2a8ff; --tok-com:#8b949e; --tok-num:#79c0ff; --tok-cls:#ffa657; --tok-ann:#7ee787;
+    --shadow:0 1px 2px rgba(0,0,0,.4);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0f1115; --bg-soft:#151920; --bg-card:#171b22; --text:#e6e8eb; --muted:#9aa4b2; --border:#2a3039;
+  --accent:#8e8ff7; --accent-soft:#20223f; --accent-text:#b4b5ff;
+  --code-bg:#12161c; --code-text:#d6dbe1;
+  --ok:#4ac26b; --ok-soft:#12261a; --bad:#ff7b72; --bad-soft:#2d1517;
+  --warn:#e3b341; --warn-soft:#2a2210; --info-soft:#0f2136; --info:#79b8ff;
+  --tok-kw:#ff7b72; --tok-str:#a5d6ff; --tok-fn:#d2a8ff; --tok-com:#8b949e; --tok-num:#79c0ff; --tok-cls:#ffa657; --tok-ann:#7ee787;
+  --shadow:0 1px 2px rgba(0,0,0,.4);
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:72px}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.7 Inter,system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+a{color:var(--accent-text)}
+code,pre,.mono{font-family:"JetBrains Mono",Consolas,ui-monospace,monospace;font-variant-ligatures:none}
+:not(pre)>code{background:var(--code-bg);border:1px solid var(--border);padding:.08em .38em;border-radius:5px;font-size:.86em}
+
+/* top bar */
+.topbar{position:sticky;top:0;z-index:20;height:56px;display:flex;align-items:center;gap:12px;padding:0 20px;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--border)}
+.topbar .brand{font-weight:700;font-size:15px;display:flex;align-items:center;gap:8px}
+.topbar .crumb{color:var(--muted);font-size:14px}
+.topbar .sp{flex:1}
+.btn{font:inherit;font-size:13px;font-weight:500;border:1px solid var(--border);background:var(--bg-card);color:var(--text);padding:6px 12px;border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.btn:hover{border-color:var(--accent);color:var(--accent-text)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.primary:hover{filter:brightness(1.08);color:#fff}
+.progress{position:fixed;top:56px;left:0;height:2px;background:var(--accent);width:0;z-index:21}
+
+/* layout */
+.layout{display:grid;grid-template-columns:250px minmax(0,1fr);max-width:1440px;margin:0 auto}
+aside.toc{position:sticky;top:56px;height:calc(100vh - 56px);overflow:auto;padding:28px 12px 28px 20px;border-right:1px solid var(--border)}
+.toc h4{margin:0 0 10px 10px;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.toc a{display:block;padding:6px 10px;border-radius:7px;font-size:14px;color:var(--muted);text-decoration:none;line-height:1.35}
+.toc a:hover{color:var(--text);background:var(--bg-soft)}
+.toc a.active{color:var(--accent-text);background:var(--accent-soft);font-weight:600}
+.toc .num{display:inline-block;width:22px;color:inherit;opacity:.7;font-variant-numeric:tabular-nums}
+main{padding:40px 48px 120px;min-width:0}
+main section{margin-bottom:64px}
+.prose{max-width:800px}
+h1{font-size:40px;line-height:1.15;letter-spacing:-.02em;margin:0 0 14px;font-weight:800}
+h2{font-size:28px;letter-spacing:-.01em;margin:0 0 16px;padding-top:8px;font-weight:750;line-height:1.25}
+h3{font-size:20px;margin:32px 0 10px;font-weight:700}
+h4{font-size:16px;margin:22px 0 6px}
+p{margin:0 0 14px}
+ul,ol{margin:0 0 14px;padding-left:22px}
+li{margin:4px 0}
+.meta{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 22px}
+.pill{font-size:12.5px;font-weight:600;border-radius:999px;padding:3px 10px;border:1px solid var(--border);background:var(--bg-soft);color:var(--muted)}
+.pill.easy{background:var(--ok-soft);color:var(--ok);border-color:transparent}
+.lead{font-size:18px;color:var(--muted)}
+.secnum{color:var(--accent);margin-right:8px}
+
+/* callouts */
+.callout{border:1px solid var(--border);border-left:4px solid var(--accent);background:var(--accent-soft);border-radius:10px;padding:14px 16px;margin:18px 0}
+.callout.tip{border-left-color:var(--ok);background:var(--ok-soft)}
+.callout.warn{border-left-color:var(--warn);background:var(--warn-soft)}
+.callout.info{border-left-color:var(--info);background:var(--info-soft)}
+.callout b.t{display:block;margin-bottom:4px}
+.callout p:last-child,.callout ul:last-child{margin-bottom:0}
+
+/* chat Q&A */
+.chat{display:flex;flex-direction:column;gap:10px;margin:18px 0 22px}
+.msg{display:flex;gap:10px;align-items:flex-start;max-width:760px}
+.msg .av{flex:none;width:32px;height:32px;border-radius:50%;display:grid;place-items:center;font-size:13px;font-weight:700;color:#fff}
+.msg.c .av{background:#5b5bd6}.msg.i .av{background:#e8590c}
+.msg .bub{border:1px solid var(--border);background:var(--bg-card);border-radius:12px;padding:9px 14px;box-shadow:var(--shadow)}
+.msg.i .bub{background:var(--bg-soft)}
+.msg .who{font-size:12px;font-weight:700;color:var(--muted);display:block;margin-bottom:1px}
+
+/* cards & grids */
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:16px 0}
+.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:16px 0}
+.card{border:1px solid var(--border);border-radius:12px;padding:14px 16px;background:var(--bg-card);box-shadow:var(--shadow)}
+.card h4{margin:0 0 6px;display:flex;align-items:center;gap:8px}
+.card p{margin:0;color:var(--muted);font-size:14.5px}
+.card .tag{font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;text-transform:uppercase;letter-spacing:.04em}
+.tag.used{background:var(--ok-soft);color:var(--ok)}
+.tag.could{background:var(--info-soft);color:var(--info)}
+.tag.avoid{background:var(--bad-soft);color:var(--bad)}
+
+table{border-collapse:collapse;width:100%;font-size:14.5px;margin:14px 0 20px}
+.tablewrap{overflow-x:auto;border:1px solid var(--border);border-radius:12px;margin:14px 0 20px}
+.tablewrap table{margin:0}
+th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--border);vertical-align:top}
+th{background:var(--bg-soft);font-size:13px;color:var(--muted);font-weight:600}
+tr:last-child td{border-bottom:0}
+
+/* nouns highlight */
+.noun{background:#fff1a8;color:#3d3200;border-radius:4px;padding:0 3px;font-weight:600}
+:root[data-theme="dark"] .noun{background:#4a3f0c;color:#ffe680}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .noun{background:#4a3f0c;color:#ffe680}}
+
+/* diagram frame */
+.figure{margin:20px 0 28px;border:1px solid var(--border);border-radius:14px;overflow:hidden;background:var(--bg-card);box-shadow:var(--shadow)}
+.figure .fhead{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--border);background:var(--bg-soft);flex-wrap:wrap}
+.figure .fhead b{font-size:14px}
+.figure .fhead .sp{flex:1}
+.figure .canvas{background:#fbfbfc;overflow:auto}
+.figure .canvas svg{display:block;width:100%;height:auto;min-width:860px;margin:0 auto}
+#flowSvg{max-width:900px}
+.figure:fullscreen{border-radius:0;display:flex;flex-direction:column}
+.figure:fullscreen .canvas{flex:1}
+.figure:fullscreen .canvas svg{height:100%;min-width:0}
+.figure .cap{padding:10px 14px;font-size:13.5px;color:var(--muted);border-top:1px solid var(--border)}
+
+/* code */
+.code{position:relative;margin:14px 0 20px;border:1px solid var(--border);border-radius:12px;background:var(--code-bg);overflow:hidden}
+.code .chead{display:flex;align-items:center;justify-content:space-between;padding:7px 12px;border-bottom:1px solid var(--border);font-size:12.5px;color:var(--muted);font-family:"JetBrains Mono",Consolas,monospace}
+.code .copy{font-size:12px;padding:3px 9px}
+pre{font-variant-ligatures:none;margin:0;padding:14px 16px;overflow:auto;font-size:13.3px;line-height:1.6;color:var(--code-text);tab-size:4}
+pre code{background:none;border:0;padding:0;font-size:inherit}
+.token.keyword,.token.boolean{color:var(--tok-kw)}
+.token.string,.token.char{color:var(--tok-str)}
+.token.function{color:var(--tok-fn)}
+.token.comment{color:var(--tok-com);font-style:italic}
+.token.number{color:var(--tok-num)}
+.token.class-name{color:var(--tok-cls)}
+.token.annotation,.token.punctuation.annotation{color:var(--tok-ann)}
+.token.operator{color:inherit}
+.why{font-size:14.5px;color:var(--muted);border-left:3px solid var(--border);padding:2px 0 2px 12px;margin:-6px 0 22px}
+
+/* serpentine mini grid */
+.serp{display:grid;grid-template-columns:repeat(4,44px);gap:4px;margin:10px 0}
+.serp div{height:44px;border-radius:8px;display:grid;place-items:center;font-weight:700;font-size:14px;background:var(--bg-soft);border:1px solid var(--border)}
+.serp div.r{background:var(--accent-soft);color:var(--accent-text)}
+.serpwrap{display:flex;gap:28px;align-items:center;flex-wrap:wrap;margin:10px 0 18px}
+
+/* simulator */
+.sim{display:grid;grid-template-columns:minmax(0,520px) minmax(0,1fr);gap:22px;margin:16px 0 22px;align-items:start}
+.board{position:relative;aspect-ratio:1;width:100%;display:grid;grid-template-columns:repeat(10,1fr);border:2px solid var(--border);border-radius:12px;overflow:hidden;user-select:none}
+.board .cell{position:relative;font-size:10px;font-weight:600;color:#56606c;padding:2px 4px;border-right:1px solid rgba(0,0,0,.04);border-bottom:1px solid rgba(0,0,0,.04)}
+.board .cell.a{background:#f4f1ff}.board .cell.b{background:#ffffff}
+.board .cell.last{background:#fff4c2}
+.board .cell.flash{outline:3px solid #f59f00;outline-offset:-3px}
+.board svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.token-p{position:absolute;width:5.2%;aspect-ratio:1;border-radius:50%;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.35);transform:translate(-50%,-50%);transition:left .45s ease,top .45s ease;z-index:3;display:grid;place-items:center;color:#fff;font-size:9px;font-weight:800}
+.simside{display:flex;flex-direction:column;gap:12px}
+.simctl{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.die{font-size:44px;line-height:1;width:58px;height:58px;display:grid;place-items:center;border:1px solid var(--border);border-radius:12px;background:var(--bg-card)}
+.die.spin{animation:spin .35s ease}
+@keyframes spin{from{transform:rotate(-180deg) scale(.6)}to{transform:none}}
+.queue{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:13px}
+.queue .q{padding:3px 10px;border-radius:999px;color:#fff;font-weight:700;font-size:12px}
+.queue .q.front{outline:2px solid var(--text);outline-offset:1px}
+.log{list-style:none;margin:0;padding:0;max-height:300px;overflow:auto;border:1px solid var(--border);border-radius:10px;background:var(--bg-soft);font-size:13px}
+.log li{padding:7px 11px;border-bottom:1px solid var(--border);margin:0}
+.log li:first-child{background:var(--bg-card)}
+.log .call{font-family:"JetBrains Mono",Consolas,monospace;font-size:11.5px;color:var(--muted);display:block}
+select{font:inherit;font-size:13px;padding:5px 8px;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);color:var(--text)}
+
+/* exercises */
+details{border:1px solid var(--border);border-radius:10px;margin:10px 0;background:var(--bg-card)}
+details>summary{cursor:pointer;padding:10px 14px;font-weight:600;font-size:14.5px;list-style:none;display:flex;gap:8px;align-items:center}
+details>summary::-webkit-details-marker{display:none}
+details>summary::before{content:"▸";color:var(--accent);transition:transform .15s}
+details[open]>summary::before{transform:rotate(90deg)}
+details>.body{padding:0 14px 12px}
+.ex{border:1px solid var(--border);border-radius:14px;padding:16px 18px;margin:16px 0;background:var(--bg-card);box-shadow:var(--shadow)}
+.ex h4{margin:0 0 6px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.lvl{font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px}
+.lvl.e{background:var(--ok-soft);color:var(--ok)}.lvl.m{background:var(--warn-soft);color:var(--warn)}.lvl.h{background:var(--bad-soft);color:var(--bad)}
+
+/* quiz */
+.quiz{counter-reset:q}
+.qbox{border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin:12px 0;background:var(--bg-card)}
+.qbox .qq{font-weight:600;margin-bottom:8px}
+.qbox .opts{display:grid;gap:6px}
+.qbox button.opt{font:inherit;font-size:14.5px;text-align:left;padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg-soft);color:var(--text);cursor:pointer}
+.qbox button.opt:hover:not(:disabled){border-color:var(--accent)}
+.qbox button.opt.right{background:var(--ok-soft);border-color:var(--ok);color:var(--ok);font-weight:600}
+.qbox button.opt.wrong{background:var(--bad-soft);border-color:var(--bad);color:var(--bad)}
+.qbox .exp{display:none;margin-top:8px;font-size:14px;color:var(--muted)}
+.qbox.done .exp{display:block}
+.score{font-weight:700;color:var(--accent-text)}
+
+/* checklist */
+.check{list-style:none;padding:0}
+.check li{display:flex;gap:10px;align-items:flex-start;padding:6px 0;border-bottom:1px dashed var(--border)}
+.check input{margin-top:6px;accent-color:var(--accent);width:16px;height:16px}
+
+/* cheat sheet */
+.tldr{font-size:18px;line-height:1.6;border-radius:14px;padding:18px 22px;background:var(--accent-soft);border:1px solid var(--border);margin:6px 0 30px}
+.tldr-k{display:block;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--accent-text);margin-bottom:4px}
+.tl{margin:0 0 10px}
+.tl-step{display:grid;grid-template-columns:40px minmax(0,1fr);gap:16px;position:relative;padding-bottom:26px}
+.tl-step::before{content:"";position:absolute;left:19px;top:42px;bottom:2px;width:2px;background:var(--border)}
+.tl-step:last-child::before{display:none}
+.tl-dot{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;font-weight:800;color:#1f2328;border:2px solid}
+.tl-body{min-width:0}
+.tl-body h4{margin:7px 0 8px;font-size:17px}
+.say{margin:0;font-size:15.5px}
+.bucket{display:grid;grid-template-columns:110px minmax(0,1fr);gap:8px 14px;font-size:15px}
+.bucket .bk{font-weight:700;color:var(--accent-text)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font-size:14px;font-weight:600;padding:4px 12px;border-radius:999px;background:var(--bg-soft);border:1px solid var(--border)}
+.chip.hl{background:var(--accent-soft);color:var(--accent-text)}
+pre.tree{font-variant-ligatures:none;margin:0;padding:14px 16px;border-radius:12px;background:var(--code-bg);border:1px solid var(--border);font-size:13.5px;line-height:1.6;overflow:auto}
+.tree .tc{color:var(--tok-com)}
+#revSvg{min-width:0 !important}
+table.traps td:first-child{font-weight:600;width:45%}
+.term{display:block;font-size:12.5px;color:var(--muted)}
+.warm{list-style:none;counter-reset:w;padding:0;margin:8px 0 0}
+.warm li{counter-increment:w;display:grid;grid-template-columns:34px minmax(0,1fr) auto;gap:12px;align-items:center;padding:12px 14px;margin:0 0 8px;border:1px solid var(--border);border-radius:12px;background:var(--bg-card)}
+.warm li::before{content:counter(w);width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-weight:800;background:var(--accent-soft);color:var(--accent-text)}
+.warm li a{font-size:13px;font-weight:600;text-decoration:none;white-space:nowrap}
+td b{white-space:nowrap}
+.pat{display:grid;gap:8px;margin:10px 0 20px;font-size:15px}
+.pat .tag{display:inline-block;width:64px;text-align:center;margin-right:10px;font-size:11px;font-weight:700;padding:2px 0;border-radius:999px;text-transform:uppercase}
+.fc-bar{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.fc-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.fc{font:inherit;text-align:left;cursor:pointer;min-height:112px;padding:14px 16px;border-radius:12px;border:1px solid var(--border);background:var(--bg-card);color:var(--text);box-shadow:var(--shadow);display:flex;flex-direction:column;gap:8px;transition:border-color .15s}
+.fc:hover{border-color:var(--accent)}
+.fc .q{font-weight:600;font-size:15px}
+.fc .q::after{content:"tap to reveal";display:block;margin-top:6px;font-weight:500;font-size:12px;color:var(--muted)}
+.fc .a{display:none;font-size:14.5px;color:var(--text);border-top:1px dashed var(--border);padding-top:8px}
+.fc.open{border-color:var(--ok);background:var(--ok-soft)}
+.fc.open .q::after{display:none}
+.fc.open .a{display:block}
+footer{color:var(--muted);font-size:13px;border-top:1px solid var(--border);padding-top:16px;margin-top:40px}
+
+/* code explorer */
+.ide{--i-bg:#1e1f22;--i-side:#191a1d;--i-bd:#2e3036;--i-tx:#d5d8dd;--i-mu:#868a91;--i-hl:#2b2d33;
+  display:grid;grid-template-columns:240px minmax(0,1fr);border:1px solid var(--i-bd);border-radius:14px;overflow:hidden;background:var(--i-bg);color:var(--i-tx);margin:18px 0 24px;box-shadow:0 8px 24px rgba(0,0,0,.18)}
+.ide:fullscreen{border-radius:0;height:100vh}
+.ide-side{background:var(--i-side);border-right:1px solid var(--i-bd);padding:14px 10px;min-width:0}
+.ide-lang{border:1px solid var(--i-bd);border-radius:9px;padding:8px 12px;font-weight:700;font-size:14px;margin-bottom:14px}
+.ide-files{font-weight:700;font-size:14px;padding:4px 6px 10px;border-bottom:1px solid var(--i-bd);margin-bottom:8px}
+.ide-cnt{font-size:11px;background:var(--i-hl);border-radius:999px;padding:1px 8px;margin-left:4px;color:var(--i-mu)}
+.ide-tree{font-size:13.5px}
+.ide-row{display:flex;align-items:center;gap:6px;width:100%;font:inherit;font-size:13.5px;color:var(--i-tx);background:none;border:0;border-radius:7px;padding:5px 8px;cursor:pointer;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ide-row:hover{background:var(--i-hl)}
+.ide-row.on{background:#1f3a2c;color:#5fd38d}
+.ide-row .car{display:inline-block;width:10px;color:var(--i-mu);transition:transform .15s}
+.ide-row.open .car{transform:rotate(90deg)}
+.ide-row .mb{margin-left:auto;font-size:10px;font-weight:800;color:#5fd38d;background:#1f3a2c;border:1px solid #2f5a42;border-radius:5px;padding:0 5px}
+.ide-kids{padding-left:14px}
+.ide-kids[hidden]{display:none}
+.ide-main{display:flex;flex-direction:column;min-width:0}
+.ide-head{display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--i-bd)}
+.ide-head b{font-size:15px}
+.ide-fico{color:#5fd38d;font-family:"JetBrains Mono",Consolas,monospace;font-size:12px;font-weight:700}
+.ide-badge{font-size:10px;font-weight:800;color:#5fd38d;background:#1f3a2c;border:1px solid #2f5a42;border-radius:5px;padding:1px 6px}
+.ide-head .sp,.ide-foot .sp{flex:1}
+.ide-ib{background:none;border:1px solid transparent;color:var(--i-mu);font-size:16px;width:32px;height:30px;border-radius:7px;cursor:pointer}
+.ide-ib:hover{border-color:var(--i-bd);color:var(--i-tx)}
+.ide-tabs{display:flex;overflow-x:auto;background:var(--i-side);border-bottom:1px solid var(--i-bd);min-height:36px}
+.ide-tab{display:flex;align-items:center;gap:8px;font:inherit;font-size:13px;color:var(--i-mu);background:none;border:0;border-right:1px solid var(--i-bd);padding:8px 12px;cursor:pointer;white-space:nowrap}
+.ide-tab.on{color:var(--i-tx);background:var(--i-bg);box-shadow:inset 0 2px 0 #5fd38d}
+.ide-tab .x{opacity:.5;font-size:12px}.ide-tab .x:hover{opacity:1}
+.ide-code{display:flex;overflow:auto;height:480px;font-family:"JetBrains Mono",Consolas,monospace;font-size:13.5px;line-height:1.65;font-variant-ligatures:none}
+.ide:fullscreen .ide-code{height:auto;flex:1}
+.ide-gutter{position:sticky;left:0;flex:none;text-align:right;padding:12px 14px 12px 12px;color:#5c6068;background:var(--i-bg);border-right:1px solid var(--i-bd);user-select:none;white-space:pre}
+.ide-code pre{margin:0;padding:12px 18px;overflow:visible;color:var(--i-tx);font-size:inherit;line-height:inherit;flex:1}
+.ide .token.keyword,.ide .token.boolean{color:#cf8e6d}
+.ide .token.string{color:#6aab73}
+.ide .token.function{color:#56a8f5}
+.ide .token.comment{color:#7a7e85}
+.ide .token.number{color:#2aacb8}
+.ide .token.class-name{color:#d5d8dd}
+.ide .token.annotation,.ide .token.punctuation.annotation{color:#b3ae60}
+.ide .token.punctuation,.ide .token.operator{color:#bcbec4}
+.ide-foot{display:flex;align-items:center;gap:8px;padding:10px 14px;border-top:1px solid var(--i-bd)}
+.ide-otab{font:inherit;font-size:13px;background:none;border:0;color:var(--i-mu);cursor:pointer;padding:4px 8px;border-radius:6px}
+.ide-otab.on{color:var(--i-tx);background:var(--i-hl)}
+.ide-run{font:inherit;font-size:14px;font-weight:700;background:#22a85a;color:#fff;border:0;border-radius:9px;padding:8px 18px;cursor:pointer}
+.ide-run:hover{background:#27bd66}
+.ide-out{border-top:1px solid var(--i-bd);background:#141517}
+.ide-out[hidden]{display:none}
+.ide-outnote{font-size:12px;color:var(--i-mu);padding:8px 14px;border-bottom:1px solid var(--i-bd)}
+.ide-outnote code{background:var(--i-hl);border-color:var(--i-bd);color:var(--i-tx)}
+.ide-out pre{margin:0;max-height:360px;overflow:auto;padding:12px 16px;font-size:12.5px;line-height:1.5;color:#c9ccd1;white-space:pre}
+@media (max-width:760px){
+  .ide{grid-template-columns:1fr}
+  .ide-side{border-right:0;border-bottom:1px solid var(--i-bd)}
+  .ide-tree{max-height:200px;overflow:auto}
+  .ide-code{height:380px}
+}
+.pill.med{background:var(--warn-soft);color:var(--warn);border-color:transparent}
+/* file system shell */
+.fssim{display:grid;grid-template-columns:minmax(0,420px) minmax(0,1fr);gap:22px;margin:16px 0 22px;align-items:start}
+.fs-left{border:1px solid var(--border);border-radius:12px;background:var(--bg-card);overflow:hidden}
+.fs-head{font-size:13px;font-weight:700;padding:9px 12px;border-bottom:1px solid var(--border);background:var(--bg-soft);display:flex;justify-content:space-between;gap:8px}
+.fs-head span{font-family:"JetBrains Mono",Consolas,monospace;font-weight:500;color:var(--accent-text)}
+.fstree{font-family:"JetBrains Mono",Consolas,monospace;font-variant-ligatures:none;font-size:13px;padding:6px 0;max-height:420px;overflow:auto}
+.fstree div{display:flex;justify-content:space-between;gap:10px;padding:3px 12px 3px 8px}
+.fstree .d{font-weight:600}
+.fstree .sz{color:var(--muted);white-space:nowrap}
+.fstree .cwd{background:var(--accent-soft);box-shadow:inset 3px 0 0 var(--accent)}
+.fstree .flash{background:var(--ok-soft)}
+.fs-cmd{display:flex;gap:8px;align-items:center}
+.fs-prompt{font-family:"JetBrains Mono",Consolas,monospace;font-weight:700;color:var(--accent)}
+.fs-cmd input{flex:1;min-width:0;font:inherit;font-family:"JetBrains Mono",Consolas,monospace;font-variant-ligatures:none;font-size:13px;padding:7px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);color:var(--text)}
+.fs-ex{display:flex;flex-wrap:wrap;gap:6px}
+.fs-ex .btn{font-family:"JetBrains Mono",Consolas,monospace;font-size:12px;padding:4px 9px}
+.log .fs-c{font-family:"JetBrains Mono",Consolas,monospace;font-weight:700;font-size:12.5px;display:block}
+.log .fs-o{margin:3px 0 2px;padding:0;background:none;border:0;font-size:12.5px;white-space:pre-wrap;font-variant-ligatures:none;color:var(--text)}
+#fsLog{max-height:340px}
+.mobile-toc{display:none}
+@media (max-width:1000px){
+  .layout{grid-template-columns:1fr}
+  aside.toc{display:none}
+  main{padding:24px 16px 80px}
+  .mobile-toc{display:block;margin-bottom:20px}
+  .sim,.fssim{grid-template-columns:1fr}
+}
+@media (max-width:640px){
+  h1{font-size:30px} h2{font-size:23px}
+  .grid2,.grid3,.fc-grid,.bucket{grid-template-columns:1fr}
+  .warm li{grid-template-columns:34px minmax(0,1fr)}
+  .warm li a{grid-column:2}
+  .topbar .crumb{display:none}
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <a class="brand" href="../index.html">📁 LLD Walkthroughs</a>
+  <div class="crumb">/ <a href="../index.html?level=medium">Medium</a> / File System</div>
+  <div class="sp"></div>
+  <button class="btn" id="themeBtn" type="button" aria-label="Toggle theme">◐ Theme</button>
+</div>
+<div class="progress" id="progress"></div>
+
+<div class="layout">
+<aside class="toc" id="toc">
+  <h4>On this page</h4>
+  <a href="#overview"><span class="num">0</span>The problem &amp; flow</a>
+  <a href="#warmup"><span class="num">▶</span>Try it first</a>
+  <a href="#requirements"><span class="num">1</span>Requirement gathering</a>
+  <a href="#entities"><span class="num">2</span>Core entities + breakdown</a>
+  <a href="#classes"><span class="num">3</span>Class diagram</a>
+  <a href="#flow"><span class="num">4</span>Move flow</a>
+  <a href="#code"><span class="num">5</span>Working code</a>
+  <a href="#try"><span class="num">6</span>Run and Test</a>
+  <a href="#patterns"><span class="num">7</span>Design patterns</a>
+  <a href="#similar"><span class="num">8</span>Similar problems</a>
+  <a href="#recap"><span class="num">9</span>Revision cheat sheet</a>
+</aside>
+
+<main>
+<details class="mobile-toc"><summary>Contents</summary><div class="body" id="mtoc"></div></details>
+
+<!-- ============ 0. OVERVIEW ============ -->
+<section id="overview">
+<div class="prose">
+  <h1>Design an In-Memory File System</h1>
+  <div class="meta">
+    <span class="pill med">Medium</span>
+    <span class="pill">Java</span>
+    <span class="pill">~25 min read</span>
+    <span class="pill">Code: <code>org.nailyourinterview.lld.file_system</code></span>
+  </div>
+  <p class="lead">Build a small Unix-like file system in memory. Users make directories, write and read files, move and delete them, and search the tree. Paths can be absolute (<code>/home/bob</code>) or relative to a working directory (<code>../bob</code>).</p>
+  <p>The question tests three decisions. <b>How do you model files and folders?</b> As one tree: a <code>Directory</code> holds <code>Entry</code> objects, and both <code>File</code> and <code>Directory</code> are entries — the <b>Composite</b> pattern. <b>How do you turn a path into a node?</b> One <code>resolve()</code> walk from the root or from the working directory. <b>How do you search with many rules?</b> Small <b>filter</b> objects that you combine with <code>and()</code>.</p>
+  <p>Every LLD answer follows the same 5 steps. Requirement gathering splits into 3 buckets: <b>extensibility</b>, <b>dynamic input</b> and <b>high traffic</b>. Click a step to jump to it.</p>
+</div>
+<div class="figure" id="figSteps">
+  <div class="fhead"><b>LLD interview flow — applied to a File System</b><span class="sp"></span>
+    <button class="btn" type="button" data-fs="figSteps">⤢ Full screen</button>
+    <button class="btn primary" type="button" data-png="stepsSvg" data-name="lld-interview-flow.png">⬇ Download PNG</button>
+  </div>
+  <div class="canvas"><svg id="stepsSvg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 720" role="img" aria-label="LLD interview flow"></svg></div>
+</div>
+</section>
+
+<!-- ============ WARM-UP ============ -->
+<section id="warmup">
+<div class="prose">
+  <h2><span class="secnum">▶</span>Try it first</h2>
+  <p>Before you read the solution, spend 10–15 minutes on your own. Use paper. A wrong first attempt is fine — it makes the answer stick when you read it.</p>
+  <h3>Step 0 · Use the shell</h3>
+  <p>This shell runs a JavaScript copy of the Java <code>FileSystem</code>. Type a command or click an example. Try this: <code>cd /home/bob</code>, then <code>rm /home</code>. Why does it fail? Then <code>mv /home /home/alice</code>. What would go wrong if it worked? The grey line under each entry shows the Java call.</p>
+</div>
+
+<div class="fssim">
+  <div class="fs-left">
+    <div class="fs-head">Tree <span id="fsCwd"></span></div>
+    <div class="fstree" id="fsTree"></div>
+  </div>
+  <div class="simside">
+    <form class="fs-cmd" id="fsForm" autocomplete="off">
+      <span class="fs-prompt">$</span>
+      <input type="text" id="fsIn" spellcheck="false" placeholder="type a command, e.g. ls /home" aria-label="Command">
+      <button class="btn primary" type="submit">Run</button>
+    </form>
+    <div class="fs-ex" id="fsEx">
+      <button class="btn" type="button">cd /home/alice</button>
+      <button class="btn" type="button">ls docs</button>
+      <button class="btn" type="button">cd ../bob</button>
+      <button class="btn" type="button">write todo.txt buy milk</button>
+      <button class="btn" type="button">mv /home/alice/docs/resume.txt /home/bob</button>
+      <button class="btn" type="button">find / -ext txt</button>
+      <button class="btn" type="button">find / -size 10</button>
+      <button class="btn" type="button">rm /home</button>
+      <button class="btn" type="button">mv /home /home/alice</button>
+      <button class="btn" type="button">cat /home</button>
+      <button class="btn" type="button">help</button>
+      <button class="btn" type="button">reset</button>
+    </div>
+    <ul class="log" id="fsLog"></ul>
+  </div>
+</div>
+
+<div class="prose">
+  <h3>Now design it yourself</h3>
+  <ol class="warm">
+    <li><span><b>Questions.</b> Write 5 questions you would ask the interviewer.</span><a href="#requirements">compare → 1.1</a></li>
+    <li><span><b>Entities.</b> List the classes. Do you keep files and folders in one map or in two?</span><a href="#entities">compare → 2</a></li>
+    <li><span><b>Size.</b> Write <code>getSize()</code> for a file and for a folder. How many lines does the folder need?</span><a href="#code">compare → 5.2</a></li>
+    <li><span><b>Paths.</b> Write <code>resolve(path)</code> in pseudocode. Handle <code>/</code>, <code>.</code>, <code>..</code> and a missing part.</span><a href="#code">compare → 5.4</a></li>
+    <li><span><b>Move.</b> List every way <code>mv a b</code> can fail. Which check stops a folder from moving into itself?</span><a href="#flow">compare → 4</a></li>
+  </ol>
+</div>
+</section>
+
+<!-- ============ 1. REQUIREMENTS ============ -->
+<section id="requirements">
+<div class="prose">
+  <h2><span class="secnum">1</span>Requirement gathering</h2>
+  <p>Do not start with code. Ask questions first. Each answer removes a guess. Then sort the answers into 4 buckets: <b>core</b>, <b>extensibility</b>, <b>dynamic input</b> and <b>high traffic</b>.</p>
+
+  <h3>1.1 Ask questions</h3>
+  <div class="chat">
+    <div class="msg c"><div class="av">C</div><div class="bub"><span class="who">Candidate</span>In memory, or on a real disk?</div></div>
+    <div class="msg i"><div class="av">I</div><div class="bub"><span class="who">Interviewer</span>In memory. No disk blocks. File content is text.</div></div>
+    <div class="msg c"><div class="av">C</div><div class="bub"><span class="who">Candidate</span>Which operations?</div></div>
+    <div class="msg i"><div class="av">I</div><div class="bub"><span class="who">Interviewer</span>Make a directory, create, write, append and read a file, list a directory, move or rename, delete. Also <code>cd</code> and <code>pwd</code>.</div></div>
+    <div class="msg c"><div class="av">C</div><div class="bub"><span class="who">Candidate</span>Absolute paths only, or relative too?</div></div>
+    <div class="msg i"><div class="av">I</div><div class="bub"><span class="who">Interviewer</span>Both. Support <code>.</code> and <code>..</code>.</div></div>
+    <div class="msg c"><div class="av">C</div><div class="bub"><span class="who">Candidate</span>Does <code>mkdir</code> create missing parents?</div></div>
+    <div class="msg i"><div class="av">I</div><div class="bub"><span class="who">Interviewer</span>Yes, like <code>mkdir -p</code>. And <code>rm</code> on a directory deletes everything under it.</div></div>
+    <div class="msg c"><div class="av">C</div><div class="bub"><span class="who">Candidate</span>What is the size of a directory?</div></div>
+    <div class="msg i"><div class="av">I</div><div class="bub"><span class="who">Interviewer</span>The sum of all files under it.</div></div>
+    <div class="msg c"><div class="av">C</div><div class="bub"><span class="who">Candidate</span>Search?</div></div>
+    <div class="msg i"><div class="av">I</div><div class="bub"><span class="who">Interviewer</span>Find by extension, by minimum size, by part of the name — and by a mix of these. More rules will come.</div></div>
+    <div class="msg c"><div class="av">C</div><div class="bub"><span class="who">Candidate</span>Users, permissions, links?</div></div>
+    <div class="msg i"><div class="av">I</div><div class="bub"><span class="who">Interviewer</span>Out of scope for now. Keep the design open for them.</div></div>
+  </div>
+
+  <h3>1.2 Core functional requirements</h3>
+  <ul>
+    <li>One tree with a root <code>/</code>. A directory holds files and directories. Names are unique inside one directory.</li>
+    <li><code>mkdir</code> creates every missing directory on the path.</li>
+    <li>Create a file; write (overwrite, create if missing); append; read.</li>
+    <li><code>ls</code> lists the children of a directory, sorted by name, with sizes.</li>
+    <li><code>cd</code> / <code>pwd</code>: a working directory for relative paths.</li>
+    <li><code>mv</code> moves into an existing directory, or renames to a new path.</li>
+    <li><code>rm</code> deletes a file, or a directory with everything under it.</li>
+    <li>Size: a file's size is its content length; a directory's size is the sum of its children.</li>
+    <li>Search under a path with one or more filters.</li>
+    <li>Reject bad input: missing path, name clash, file used as a directory (or the reverse), moving a directory into itself, deleting the root or the working directory.</li>
+  </ul>
+
+  <h3 id="extensibility">1.3 Extensibility (new features)</h3>
+  <p>Ask: <i>“Which features may come next?”</i> You do not build them now. You make sure each one is an <b>addition</b>, not a rewrite. For each feature, name the class that changes and the pattern that keeps the change small.</p>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Follow-up question</th><th>What changes</th><th>Pattern / idea</th></tr></thead>
+    <tbody>
+      <tr><td>New search rule (glob, date, owner)</td><td>New class that implements <code>SearchFilter</code>, or a lambda</td><td>Strategy / Specification</td></tr>
+      <tr><td>Symbolic links</td><td>New <code>Link extends Entry</code> with a target path; <code>resolve()</code> follows it, with a hop limit</td><td>Composite + Proxy</td></tr>
+      <tr><td>Created / modified time, owner</td><td>Fields on <code>Entry</code>; <code>write</code> and <code>addChild</code> update them</td><td>—</td></tr>
+      <tr><td>Users and permissions (rwx)</td><td><code>Entry</code> gets owner + mode; a <code>PermissionChecker</code> runs before each operation</td><td>Proxy / guard</td></tr>
+      <tr><td>Undo, command history</td><td>Each operation becomes a <code>Command</code> with <code>execute()</code> / <code>undo()</code></td><td>Command</td></tr>
+      <tr><td>Watch a folder for changes</td><td><code>FileSystem</code> fires events to <code>FileWatcher</code> listeners</td><td>Observer</td></tr>
+      <tr><td>New operations on the tree (export, count, du)</td><td>A <code>EntryVisitor</code>; no change to <code>File</code> / <code>Directory</code></td><td>Visitor</td></tr>
+      <tr><td>Disk quota</td><td>Check <code>root.getSize()</code> + new bytes before <code>write</code> / <code>append</code></td><td>—</td></tr>
+      <tr><td>Real storage (disk blocks, cloud)</td><td><code>File</code> keeps block ids; a <code>StorageProvider</code> reads and writes bytes</td><td>Strategy / Repository</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>1.4 Dynamic (user input)</h3>
+  <p>Nothing is hard-coded. Every path and every piece of text comes in at runtime:</p>
+  <ul>
+    <li>Paths: <code>mkdir("/home/alice/docs")</code>, <code>cd("../bob")</code>, <code>move("/home/bob/resume.txt", "/home/bob/cv.txt")</code>.</li>
+    <li>Content: <code>writeFile(path, text)</code>, <code>appendFile(path, text)</code>.</li>
+    <li>Search rules: <code>search("/home", new NameContainsFilter("o").and(new ExtensionFilter("md")))</code>.</li>
+  </ul>
+  <div class="callout warn"><b class="t">Validate the input</b>A path part can be missing. A file can sit where a directory is needed (<code>mkdir /home/bob/todo.txt/x</code>, <code>cd /tmp/cache.log</code>), or the reverse (<code>cat /home</code>). A name can clash. A move can target the source's own subtree. A delete can target the root or the working directory. Each check prints one clear message and returns early. Nothing changes on failure.</div>
+
+  <h3>1.5 High traffic (concurrency)</h3>
+  <p><b>Not needed for the interview answer</b> — one user, one shell. The code is single-threaded: plain <code>TreeMap</code> children and one <code>current</code> field. Say so, then say what a shared file system needs:</p>
+  <ul>
+    <li><b>Working directory per user.</b> <code>current</code> moves into a <code>Session</code> object. Two users must not share one <code>cd</code>.</li>
+    <li><b>Simple lock.</b> One <code>ReentrantReadWriteLock</code> for the tree. <code>ls</code>, <code>cat</code>, <code>search</code> take the read lock; <code>mkdir</code>, <code>write</code>, <code>mv</code>, <code>rm</code> take the write lock. Easy and correct; writers wait.</li>
+    <li><b>Finer locks.</b> One lock per directory. Lock from the root down (parent before child). <code>mv</code> locks both parents in path order, so two moves cannot deadlock.</li>
+    <li><b>At real scale</b> (HDFS, GFS): a metadata server holds the tree; data servers hold file blocks. Clients ask the metadata server for block locations, then read data directly.</li>
+  </ul>
+
+  <h3>1.6 Non-functional requirements</h3>
+  <ul>
+    <li><b>Correct</b> — the tree never gets a cycle; no orphan working directory.</li>
+    <li><b>Fast lookup</b> — each path part is one map lookup: O(depth).</li>
+    <li><b>Readable</b> — <code>ls</code> output is sorted (a <code>TreeMap</code>).</li>
+    <li><b>Extensible</b> — a new search rule or a new entry type is one new class.</li>
+  </ul>
+  <div class="callout tip"><b class="t">Interview tip</b>Say early: “A file and a directory are both entries. A directory holds entries.” Draw that triangle first. Size, search, move and delete all follow from it.</div>
+</div>
+</section>
+
+<!-- ============ 2. ENTITIES ============ -->
+<section id="entities">
+<div class="prose">
+  <h2><span class="secnum">2</span>Core entities + breakdown</h2>
+  <p>Read the requirements again. Underline the nouns. Most nouns become classes. Verbs become methods.</p>
+  <div class="callout">
+    The <span class="noun">file system</span> is a tree with a <span class="noun">root</span>. A <span class="noun">directory</span> holds <span class="noun">files</span> and other directories. Each has a <span class="noun">name</span> and a <span class="noun">parent</span>. A user <i>makes</i> directories, <i>writes</i> and <i>reads</i> files, <i>moves</i> and <i>deletes</i> them, using a <span class="noun">path</span> from the root or from the <span class="noun">working directory</span>. A user also <i>searches</i> with one or more <span class="noun">filters</span>.
+  </div>
+  <p>“File” and “directory” share name, parent, path and size, so they get a common parent class: <code>Entry</code>. “Root” and “working directory” are not classes — they are two <code>Directory</code> fields in <code>FileSystem</code>. “Path” is a <code>String</code>; <code>resolve()</code> turns it into an <code>Entry</code>. “Filter” changes often, so it is an interface.</p>
+
+  <div class="tablewrap"><table>
+    <thead><tr><th>Entity</th><th>Type</th><th>Responsibility</th></tr></thead>
+    <tbody>
+      <tr><td><b>FileSystem</b></td><td>Service</td><td>The one entry point. Holds <code>root</code> and <code>current</code>. Resolves paths, validates input, runs every command.</td></tr>
+      <tr><td><b>Entry</b></td><td>Abstract class</td><td>Name and parent. <code>getPath()</code> walks up to the root. <code>getSize()</code> and <code>isDirectory()</code> are abstract.</td></tr>
+      <tr><td><b>File</b></td><td>Leaf</td><td>Content in a <code>StringBuilder</code>. Read, write, append, extension. Size = content length.</td></tr>
+      <tr><td><b>Directory</b></td><td>Composite</td><td><code>children: TreeMap&lt;name, Entry&gt;</code>. Add, remove, get a child. Size = sum of children.</td></tr>
+      <tr><td><b>SearchFilter</b></td><td>Interface</td><td><code>matches(entry)</code>, plus a default <code>and(other)</code> to combine filters.</td></tr>
+      <tr><td><b>ExtensionFilter</b> / <b>MinSizeFilter</b> / <b>NameContainsFilter</b></td><td>Strategy</td><td>Files with extension X / files of at least N bytes / entries whose name contains S.</td></tr>
+    </tbody>
+  </table></div>
+  <div class="callout warn"><b class="t">Common mistake</b>A <code>Directory</code> with two maps: <code>files</code> and <code>subDirs</code>. Then a file and a folder can have the same name, every method checks two maps, and size, search, move and delete each need two code paths. One map of <code>Entry</code> fixes all of it.</div>
+</div>
+</section>
+
+<!-- ============ 3. CLASSES ============ -->
+<section id="classes">
+<div class="prose">
+  <h2><span class="secnum">3</span>Class diagram</h2>
+  <p>Read it from the top right: <b>File</b> and <b>Directory</b> are <b>Entries</b>, and a <b>Directory</b> has many <b>Entries</b> — the Composite triangle. On the left, <b>FileSystem</b> has the root directory and uses <b>SearchFilters</b>.</p>
+</div>
+
+<div class="figure" id="figClass">
+  <div class="fhead"><b>Class diagram</b><span class="sp"></span>
+    <button class="btn" type="button" data-fs="figClass">⤢ Full screen</button>
+    <button class="btn primary" type="button" data-png="classSvg" data-name="file-system-class-diagram.png">⬇ Download PNG</button>
+  </div>
+  <div class="canvas"><svg id="classSvg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1560 1000" role="img" aria-label="Class diagram of the file system"></svg></div>
+  <div class="cap">Read each line as a sentence: “Directory <b>is an</b> Entry”, “Directory <b>has many</b> Entries”, “Entry <b>may have 1</b> parent Directory”, “FileSystem <b>has a</b> root Directory”.</div>
+</div>
+
+<div class="prose">
+  <h3>Relationships, one by one</h3>
+  <div class="tablewrap"><table>
+    <thead><tr><th>From → To</th><th>Relationship</th><th>Why</th></tr></thead>
+    <tbody>
+      <tr><td>File, Directory → Entry</td><td><b>is a</b> <span class="term">inheritance</span></td><td>Both have a name, a parent, a path and a size.</td></tr>
+      <tr><td>Directory → Entry</td><td><b>has many</b> <span class="term">composition</span></td><td>Children live in the directory's map. Delete the directory and they go with it.</td></tr>
+      <tr><td>Entry → Directory</td><td><b>may have 1</b> <span class="term">association</span></td><td>The parent link. Only the root has none. <code>getPath()</code>, <code>..</code> and the cycle check walk it.</td></tr>
+      <tr><td>FileSystem → Directory</td><td><b>has a</b> <span class="term">composition</span></td><td>Creates the root itself. <code>current</code> points into the same tree.</td></tr>
+      <tr><td>FileSystem → File, Directory</td><td><b>creates</b> <span class="term">dependency</span></td><td><code>createFile</code> and <code>mkdir</code> make the new nodes.</td></tr>
+      <tr><td>FileSystem → SearchFilter</td><td><b>uses</b> <span class="term">dependency</span></td><td>Passed in to <code>search()</code>; asked once per entry.</td></tr>
+      <tr><td>Extension / MinSize / NameContains → SearchFilter</td><td><b>is a</b> <span class="term">realization</span></td><td>Each implements <code>matches</code>.</td></tr>
+    </tbody>
+  </table></div>
+  <div class="callout info"><b class="t">Two links, one invariant</b>A child sits in its parent's map, and the child's <code>parent</code> field points back. <code>Directory.addChild</code> and <code>removeChild</code> set both sides in one place, so they never disagree.</div>
+</div>
+</section>
+
+<!-- ============ 4. FLOW ============ -->
+<section id="flow">
+<div class="prose">
+  <h2><span class="secnum">4</span>Move flow</h2>
+  <p>Most commands are “resolve, check the type, change one map”. <code>move</code> has the most checks, so it is the one to draw. It decides between “move into a directory” and “rename”, then stops a directory from moving into its own subtree.</p>
+</div>
+<div class="figure" id="figFlow">
+  <div class="fhead"><b>FileSystem.move() flowchart</b><span class="sp"></span>
+    <button class="btn" type="button" data-fs="figFlow">⤢ Full screen</button>
+    <button class="btn primary" type="button" data-png="flowSvg" data-name="file-system-move-flow.png">⬇ Download PNG</button>
+  </div>
+  <div class="canvas"><svg id="flowSvg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 960" role="img" aria-label="Flowchart of move"></svg></div>
+  <div class="cap">Example: <code>mv /home /home/alice</code>. The target is a directory, so the new parent is <code>/home/alice</code>. Walk up from it: alice → home. We meet the source, so refuse. Without the check, <code>/home</code> would become its own grandchild and drop out of the tree.</div>
+</div>
+</section>
+
+<!-- ============ 5. CODE ============ -->
+<section id="code">
+<div class="prose">
+  <h2><span class="secnum">5</span>Working code</h2>
+  <p>Build bottom-up: <code>Entry</code>, then <code>File</code> and <code>Directory</code>, then the filters, then <code>FileSystem</code>. The code uses Lombok (<code>@Getter</code>, <code>@Setter</code>, <code>@AllArgsConstructor</code>) to remove boilerplate.</p>
+
+  <h3>5.1 Entry — the shared base</h3>
+<div class="code"><div class="chead"><span>model/Entry.java</span><button class="btn copy" type="button">Copy</button></div><pre><code class="language-java">// One node in the tree. A file and a directory are both entries (Composite).
+@Getter
+public abstract class Entry {
+    @Setter private String name;
+    @Setter private Directory parent;   // null only for the root
+
+    protected Entry(String name) {
+        this.name = name;
+    }
+
+    public abstract int getSize();
+
+    public abstract boolean isDirectory();
+
+    // Walk up to the root: /docs/notes.txt
+    public String getPath() {
+        if (parent == null) return "/";
+        String parentPath = parent.getPath();
+        return (parentPath.equals("/") ? "" : parentPath) + "/" + name;
+    }
+}</code></pre></div>
+  <p class="why"><b>Why compute the path, not store it?</b> A stored path goes stale on every <code>mv</code> of any ancestor. Moving <code>/home</code> would mean rewriting every path under it. With a parent link, a move is one map change and every path below is right at once.</p>
+
+  <h3>5.2 File and Directory — leaf and composite</h3>
+<div class="code"><div class="chead"><span>model/File.java · model/Directory.java</span><button class="btn copy" type="button">Copy</button></div><pre><code class="language-java">public class File extends Entry {
+    private final StringBuilder content = new StringBuilder();
+
+    public File(String name) {
+        super(name);
+    }
+
+    public String read() {
+        return content.toString();
+    }
+
+    public void write(String text) {
+        content.setLength(0);
+        content.append(text);
+    }
+
+    public void append(String text) {
+        content.append(text);
+    }
+
+    public String getExtension() {
+        int dot = getName().lastIndexOf('.');
+        return dot &lt; 0 ? "" : getName().substring(dot + 1);
+    }
+
+    @Override
+    public int getSize() {
+        return content.length();
+    }
+
+    @Override
+    public boolean isDirectory() {
+        return false;
+    }
+}
+
+public class Directory extends Entry {
+    private final Map&lt;String, Entry&gt; children = new TreeMap&lt;&gt;();   // name -&gt; entry, sorted for ls
+
+    public Directory(String name) {
+        super(name);
+    }
+
+    public Entry getChild(String name) { return children.get(name); }
+    public boolean hasChild(String name) { return children.containsKey(name); }
+    public Collection&lt;Entry&gt; getChildren() { return children.values(); }
+
+    public void addChild(Entry entry) {
+        children.put(entry.getName(), entry);
+        entry.setParent(this);
+    }
+
+    public void removeChild(String name) {
+        Entry entry = children.remove(name);
+        if (entry != null) entry.setParent(null);
+    }
+
+    // Composite: a directory's size is the sum of its children
+    @Override
+    public int getSize() {
+        return children.values().stream().mapToInt(Entry::getSize).sum();
+    }
+
+    @Override
+    public boolean isDirectory() {
+        return true;
+    }
+}</code></pre></div>
+  <p class="why"><b>The Composite in one line:</b> <code>Directory.getSize()</code> calls <code>getSize()</code> on each child and does not care if the child is a file or a folder. The recursion ends at the files. <b>Why a <code>TreeMap</code>?</b> O(log n) lookup by name, and <code>ls</code> comes out sorted for free. <b>Why no getter for the map?</b> <code>getChildren()</code> returns values only; all changes go through <code>addChild</code> / <code>removeChild</code>, which keep the parent link right.</p>
+
+  <h3>5.3 SearchFilter — what to find</h3>
+<div class="code"><div class="chead"><span>search/SearchFilter.java · ExtensionFilter.java · MinSizeFilter.java · NameContainsFilter.java</span><button class="btn copy" type="button">Copy</button></div><pre><code class="language-java">public interface SearchFilter {
+    boolean matches(Entry entry);
+
+    default SearchFilter and(SearchFilter other) {
+        return entry -&gt; matches(entry) &amp;&amp; other.matches(entry);
+    }
+}
+
+@AllArgsConstructor
+public class ExtensionFilter implements SearchFilter {
+    private final String extension;
+
+    @Override
+    public boolean matches(Entry entry) {
+        return entry instanceof File file &amp;&amp; file.getExtension().equals(extension);
+    }
+}
+
+@AllArgsConstructor
+public class MinSizeFilter implements SearchFilter {
+    private final int minSize;
+
+    @Override
+    public boolean matches(Entry entry) {
+        return !entry.isDirectory() &amp;&amp; entry.getSize() &gt;= minSize;
+    }
+}
+
+@AllArgsConstructor
+public class NameContainsFilter implements SearchFilter {
+    private final String text;
+
+    @Override
+    public boolean matches(Entry entry) {
+        return entry.getName().contains(text);
+    }
+}</code></pre></div>
+  <p class="why"><b>Why a default <code>and()</code>?</b> “<code>.md</code> files with an <i>o</i> in the name” needs no new class: <code>new NameContainsFilter("o").and(new ExtensionFilter("md"))</code>. <code>or()</code> and <code>not()</code> are two more default methods. The search walk never changes.</p>
+
+  <h3>5.4 FileSystem — paths and commands</h3>
+<div class="code"><div class="chead"><span>service/FileSystem.java (core methods)</span><button class="btn copy" type="button">Copy</button></div><pre><code class="language-java">public class FileSystem {
+    private final Directory root = new Directory("");
+    private Directory current = root;   // working directory for relative paths
+
+    // Absolute (/a/b) or relative to the working directory (a/b, ../b, ./b).
+    // Returns null if any part is missing.
+    private Entry resolve(String path) {
+        Entry entry = path.startsWith("/") ? root : current;
+        for (String part : path.split("/")) {
+            if (part.isEmpty() || part.equals(".")) continue;
+            if (part.equals("..")) {
+                entry = entry.getParent() == null ? entry : entry.getParent();
+                continue;
+            }
+            if (!(entry instanceof Directory dir)) return null;
+            entry = dir.getChild(part);
+            if (entry == null) return null;
+        }
+        return entry;
+    }
+
+    // Like mkdir -p: create every missing directory on the path
+    public boolean mkdir(String path) {
+        Directory dir = path.startsWith("/") ? root : current;
+        for (String part : path.split("/")) {
+            if (part.isEmpty() || part.equals(".")) continue;
+            if (part.equals("..")) { dir = dir.getParent() == null ? dir : dir.getParent(); continue; }
+            Entry child = dir.getChild(part);
+            if (child == null) {
+                child = new Directory(part);
+                dir.addChild(child);
+            } else if (!child.isDirectory()) {
+                System.out.println("mkdir: " + child.getPath() + " is a file.");
+                return false;
+            }
+            dir = (Directory) child;
+        }
+        System.out.println("mkdir " + dir.getPath());
+        return true;
+    }
+
+    // Overwrite. Create the file first if it is missing.
+    public boolean writeFile(String path, String text) {
+        Entry entry = resolve(path);
+        if (entry == null) {
+            if (!createFile(path)) return false;
+            entry = resolve(path);
+        }
+        File file = asFile(entry, "write");
+        if (file == null) return false;
+        file.write(text);
+        return true;
+    }
+
+    // Delete a file, or a directory with everything under it (rm -r)
+    public boolean delete(String path) {
+        Entry entry = find(path, "rm");
+        if (entry == null) return false;
+        if (entry == root) { System.out.println("rm: cannot delete the root."); return false; }
+        if (isSameOrInside(current, entry)) {
+            System.out.println("rm: " + entry.getPath() + " holds the working directory.");
+            return false;
+        }
+        entry.getParent().removeChild(entry.getName());
+        return true;
+    }
+
+    // mv: into an existing directory, or to a new path (rename)
+    public boolean move(String from, String to) {
+        Entry source = find(from, "mv");
+        if (source == null) return false;
+        if (source == root) { System.out.println("mv: cannot move the root."); return false; }
+
+        Entry target = resolve(to);
+        Directory newParent;
+        String newName;
+        if (target != null &amp;&amp; target.isDirectory()) {
+            newParent = (Directory) target;
+            newName = source.getName();
+        } else {
+            newParent = findDirectory(parentOf(to), "mv");
+            newName = nameOf(to);
+            if (newParent == null || !isValidName(newName)) return false;
+        }
+
+        if (isSameOrInside(newParent, source)) {
+            System.out.println("mv: cannot move " + source.getPath() + " inside itself.");
+            return false;
+        }
+        if (newParent.hasChild(newName)) {
+            System.out.println("mv: " + newParent.getChild(newName).getPath() + " already exists.");
+            return false;
+        }
+
+        source.getParent().removeChild(source.getName());
+        source.setName(newName);
+        newParent.addChild(source);
+        return true;
+    }
+
+    public List&lt;String&gt; search(String path, SearchFilter filter) {
+        List&lt;String&gt; found = new ArrayList&lt;&gt;();
+        Entry start = find(path, "find");
+        if (start != null) collect(start, filter, found);
+        return found;
+    }
+
+    // Depth-first walk of the tree
+    private void collect(Entry entry, SearchFilter filter, List&lt;String&gt; found) {
+        if (filter.matches(entry)) found.add(entry.getPath());
+        if (entry instanceof Directory dir) {
+            dir.getChildren().forEach(child -&gt; collect(child, filter, found));
+        }
+    }
+
+    // Walk up from 'entry'. True if we meet 'ancestor' on the way.
+    private boolean isSameOrInside(Entry entry, Entry ancestor) {
+        for (Entry e = entry; e != null; e = e.getParent()) {
+            if (e == ancestor) return true;
+        }
+        return false;
+    }
+
+    // cd, pwd, ls, createFile, appendFile, readFile, tree,
+    // find / findDirectory / asFile print the error and return null,
+    // parentOf / nameOf split a path, isValidName rejects "", "." and ".."
+}</code></pre></div>
+  <p class="why"><b>One <code>resolve()</code> for every command.</b> Absolute vs relative is one line: the start node. <code>..</code> at the root stays at the root, like Unix. <b>One helper for two guards.</b> <code>isSameOrInside</code> stops <code>mv /home /home/alice</code> (a cycle) and <code>rm /home</code> while you stand in <code>/home/bob</code> (a dangling working directory). <b>Why remove before rename?</b> The map key is the name. Remove with the old name, then rename, then add with the new name.</p>
+
+  <h3>5.5 Main — the client</h3>
+<div class="code"><div class="chead"><span>Main.java (part)</span><button class="btn copy" type="button">Copy</button></div><pre><code class="language-java">FileSystem fs = new FileSystem();
+fs.mkdir("/home/alice/docs");                                 // creates home, alice, docs
+fs.writeFile("/home/alice/docs/notes.md", "# LLD\n");
+fs.appendFile("/home/alice/docs/notes.md", "- Composite pattern\n");
+
+fs.cd("/home/alice");
+fs.ls("docs");                                                // relative path
+fs.cd("../bob");
+
+fs.move("/home/alice/docs/resume.txt", "/home/bob");          // into a directory
+fs.move("/home/bob/resume.txt", "/home/bob/cv.txt");          // rename
+
+fs.search("/home", new NameContainsFilter("o").and(new ExtensionFilter("md")));
+fs.move("/home", "/home/alice");                              // refused: inside itself</code></pre></div>
+</div>
+</section>
+
+<!-- ============ 6. RUN AND TEST ============ -->
+<section id="try">
+<div class="prose">
+  <h2><span class="secnum">6</span>Run and Test</h2>
+  <p>The full <code>file_system</code> package, file by file. Click a file to open it. Start with <b>Main.java</b>, then follow the calls: <code>FileSystem.move</code> → <code>resolve</code> → <code>isSameOrInside</code> → <code>Directory.removeChild</code> / <code>addChild</code>.
+  <a href="https://github.com/harikrishna8121999/java-low-level-design/tree/main/src/main/java/org/nailyourinterview/lld/file_system" target="_blank" rel="noopener">Open on GitHub ↗</a> <span style="color:var(--muted)">(after you push it)</span></p>
+</div>
+
+<div class="ide" id="ide">
+  <aside class="ide-side">
+    <div class="ide-lang">☕ Java</div>
+    <div class="ide-files">📁 Files <span class="ide-cnt" id="ideCnt"></span></div>
+    <div class="ide-tree" id="ideTree"></div>
+  </aside>
+  <div class="ide-main">
+    <div class="ide-head">
+      <span class="ide-fico">{ }</span><b id="ideTitle"></b><span class="ide-badge" id="ideBadge">MAIN</span>
+      <span class="sp"></span>
+      <button class="ide-ib" type="button" id="ideCopy" title="Copy file">⧉</button>
+      <button class="ide-ib" type="button" id="ideFs" title="Full screen">⤢</button>
+    </div>
+    <div class="ide-tabs" id="ideTabs"></div>
+    <div class="ide-code" id="ideScroll"><div class="ide-gutter" id="ideGutter"></div><pre><code class="language-java" id="ideCode"></code></pre></div>
+    <div class="ide-foot">
+      <button class="ide-otab" type="button" id="ideOutTab">Output</button>
+      <span class="sp"></span>
+      <button class="ide-run" type="button" id="ideRun">▶ Run</button>
+    </div>
+    <div class="ide-out" id="ideOut" hidden>
+      <div class="ide-outnote">Recorded run of <code>Main</code> (a browser cannot run Java). Seven scenarios: build the tree, write and read files, relative paths, move and rename, search with combined filters, bad input, and a recursive delete.</div>
+      <pre id="ideOutPre"></pre>
+    </div>
+  </div>
+</div>
+<script type="application/json" id="repoFiles">{"files": [{"path": "model/Directory.java", "code": "package org.nailyourinterview.lld.file_system.model;\n\nimport java.util.Collection;\nimport java.util.Map;\nimport java.util.TreeMap;\n\npublic class Directory extends Entry {\n    private final Map<String, Entry> children = new TreeMap<>();   // name -> entry, sorted for ls\n\n    public Directory(String name) {\n        super(name);\n    }\n\n    public Entry getChild(String name) {\n        return children.get(name);\n    }\n\n    public boolean hasChild(String name) {\n        return children.containsKey(name);\n    }\n\n    public void addChild(Entry entry) {\n        children.put(entry.getName(), entry);\n        entry.setParent(this);\n    }\n\n    public void removeChild(String name) {\n        Entry entry = children.remove(name);\n        if (entry != null) entry.setParent(null);\n    }\n\n    public Collection<Entry> getChildren() {\n        return children.values();\n    }\n\n    // Composite: a directory's size is the sum of its children\n    @Override\n    public int getSize() {\n        return children.values().stream().mapToInt(Entry::getSize).sum();\n    }\n\n    @Override\n    public boolean isDirectory() {\n        return true;\n    }\n}\n"}, {"path": "model/Entry.java", "code": "package org.nailyourinterview.lld.file_system.model;\n\nimport lombok.Getter;\nimport lombok.Setter;\n\n// One node in the tree. A file and a directory are both entries (Composite).\n@Getter\npublic abstract class Entry {\n    @Setter private String name;\n    @Setter private Directory parent;   // null only for the root\n\n    protected Entry(String name) {\n        this.name = name;\n    }\n\n    public abstract int getSize();\n\n    public abstract boolean isDirectory();\n\n    // Walk up to the root: /docs/notes.txt\n    public String getPath() {\n        if (parent == null) return \"/\";\n        String parentPath = parent.getPath();\n        return (parentPath.equals(\"/\") ? \"\" : parentPath) + \"/\" + name;\n    }\n}\n"}, {"path": "model/File.java", "code": "package org.nailyourinterview.lld.file_system.model;\n\npublic class File extends Entry {\n    private final StringBuilder content = new StringBuilder();\n\n    public File(String name) {\n        super(name);\n    }\n\n    public String read() {\n        return content.toString();\n    }\n\n    public void write(String text) {\n        content.setLength(0);\n        content.append(text);\n    }\n\n    public void append(String text) {\n        content.append(text);\n    }\n\n    public String getExtension() {\n        int dot = getName().lastIndexOf('.');\n        return dot < 0 ? \"\" : getName().substring(dot + 1);\n    }\n\n    @Override\n    public int getSize() {\n        return content.length();\n    }\n\n    @Override\n    public boolean isDirectory() {\n        return false;\n    }\n}\n"}, {"path": "search/ExtensionFilter.java", "code": "package org.nailyourinterview.lld.file_system.search;\n\nimport lombok.AllArgsConstructor;\nimport org.nailyourinterview.lld.file_system.model.Entry;\nimport org.nailyourinterview.lld.file_system.model.File;\n\n@AllArgsConstructor\npublic class ExtensionFilter implements SearchFilter {\n    private final String extension;\n\n    @Override\n    public boolean matches(Entry entry) {\n        return entry instanceof File file && file.getExtension().equals(extension);\n    }\n}\n"}, {"path": "search/MinSizeFilter.java", "code": "package org.nailyourinterview.lld.file_system.search;\n\nimport lombok.AllArgsConstructor;\nimport org.nailyourinterview.lld.file_system.model.Entry;\n\n@AllArgsConstructor\npublic class MinSizeFilter implements SearchFilter {\n    private final int minSize;\n\n    @Override\n    public boolean matches(Entry entry) {\n        return !entry.isDirectory() && entry.getSize() >= minSize;\n    }\n}\n"}, {"path": "search/NameContainsFilter.java", "code": "package org.nailyourinterview.lld.file_system.search;\n\nimport lombok.AllArgsConstructor;\nimport org.nailyourinterview.lld.file_system.model.Entry;\n\n@AllArgsConstructor\npublic class NameContainsFilter implements SearchFilter {\n    private final String text;\n\n    @Override\n    public boolean matches(Entry entry) {\n        return entry.getName().contains(text);\n    }\n}\n"}, {"path": "search/SearchFilter.java", "code": "package org.nailyourinterview.lld.file_system.search;\n\nimport org.nailyourinterview.lld.file_system.model.Entry;\n\npublic interface SearchFilter {\n    boolean matches(Entry entry);\n\n    default SearchFilter and(SearchFilter other) {\n        return entry -> matches(entry) && other.matches(entry);\n    }\n}\n"}, {"path": "service/FileSystem.java", "code": "package org.nailyourinterview.lld.file_system.service;\n\nimport org.nailyourinterview.lld.file_system.model.Directory;\nimport org.nailyourinterview.lld.file_system.model.Entry;\nimport org.nailyourinterview.lld.file_system.model.File;\nimport org.nailyourinterview.lld.file_system.search.SearchFilter;\n\nimport java.util.ArrayList;\nimport java.util.List;\n\npublic class FileSystem {\n    private final Directory root = new Directory(\"\");\n    private Directory current = root;   // working directory for relative paths\n\n    // ----- directories -----\n\n    // Like mkdir -p: create every missing directory on the path\n    public boolean mkdir(String path) {\n        Directory dir = path.startsWith(\"/\") ? root : current;\n        for (String part : path.split(\"/\")) {\n            if (part.isEmpty() || part.equals(\".\")) continue;\n            if (part.equals(\"..\")) {\n                dir = dir.getParent() == null ? dir : dir.getParent();\n                continue;\n            }\n            Entry child = dir.getChild(part);\n            if (child == null) {\n                child = new Directory(part);\n                dir.addChild(child);\n            } else if (!child.isDirectory()) {\n                System.out.println(\"mkdir: \" + child.getPath() + \" is a file.\");\n                return false;\n            }\n            dir = (Directory) child;\n        }\n        System.out.println(\"mkdir \" + dir.getPath());\n        return true;\n    }\n\n    public boolean cd(String path) {\n        Directory dir = findDirectory(path, \"cd\");\n        if (dir == null) return false;\n        current = dir;\n        return true;\n    }\n\n    public String pwd() {\n        return current.getPath();\n    }\n\n    public void ls(String path) {\n        Entry entry = find(path, \"ls\");\n        if (entry == null) return;\n        if (!entry.isDirectory()) {\n            System.out.println(line(entry));\n            return;\n        }\n        System.out.println(\"ls \" + entry.getPath());\n        ((Directory) entry).getChildren().forEach(child -> System.out.println(\"  \" + line(child)));\n    }\n\n    // ----- files -----\n\n    public boolean createFile(String path) {\n        Directory parent = findDirectory(parentOf(path), \"touch\");\n        String name = nameOf(path);\n        if (parent == null || !isValidName(name)) return false;\n        if (parent.hasChild(name)) {\n            System.out.println(\"touch: \" + parent.getChild(name).getPath() + \" already exists.\");\n            return false;\n        }\n        File file = new File(name);\n        parent.addChild(file);\n        System.out.println(\"touch \" + file.getPath());\n        return true;\n    }\n\n    // Overwrite. Create the file first if it is missing.\n    public boolean writeFile(String path, String text) {\n        Entry entry = resolve(path);\n        if (entry == null) {\n            if (!createFile(path)) return false;\n            entry = resolve(path);\n        }\n        File file = asFile(entry, \"write\");\n        if (file == null) return false;\n        file.write(text);\n        System.out.println(\"write \" + file.getPath() + \" (\" + file.getSize() + \" B)\");\n        return true;\n    }\n\n    public boolean appendFile(String path, String text) {\n        File file = asFile(find(path, \"append\"), \"append\");\n        if (file == null) return false;\n        file.append(text);\n        System.out.println(\"append \" + file.getPath() + \" (\" + file.getSize() + \" B)\");\n        return true;\n    }\n\n    public String readFile(String path) {\n        File file = asFile(find(path, \"cat\"), \"cat\");\n        return file == null ? null : file.read();\n    }\n\n    // ----- delete and move -----\n\n    // Delete a file, or a directory with everything under it (rm -r)\n    public boolean delete(String path) {\n        Entry entry = find(path, \"rm\");\n        if (entry == null) return false;\n        if (entry == root) {\n            System.out.println(\"rm: cannot delete the root.\");\n            return false;\n        }\n        if (isSameOrInside(current, entry)) {\n            System.out.println(\"rm: \" + entry.getPath() + \" holds the working directory.\");\n            return false;\n        }\n        System.out.println(\"rm \" + entry.getPath());\n        entry.getParent().removeChild(entry.getName());\n        return true;\n    }\n\n    // mv: into an existing directory, or to a new path (rename)\n    public boolean move(String from, String to) {\n        Entry source = find(from, \"mv\");\n        if (source == null) return false;\n        if (source == root) {\n            System.out.println(\"mv: cannot move the root.\");\n            return false;\n        }\n\n        Entry target = resolve(to);\n        Directory newParent;\n        String newName;\n        if (target != null && target.isDirectory()) {\n            newParent = (Directory) target;\n            newName = source.getName();\n        } else {\n            newParent = findDirectory(parentOf(to), \"mv\");\n            newName = nameOf(to);\n            if (newParent == null || !isValidName(newName)) return false;\n        }\n\n        if (isSameOrInside(newParent, source)) {\n            System.out.println(\"mv: cannot move \" + source.getPath() + \" inside itself.\");\n            return false;\n        }\n        if (newParent.hasChild(newName)) {\n            System.out.println(\"mv: \" + newParent.getChild(newName).getPath() + \" already exists.\");\n            return false;\n        }\n\n        String oldPath = source.getPath();\n        source.getParent().removeChild(source.getName());\n        source.setName(newName);\n        newParent.addChild(source);\n        System.out.println(\"mv \" + oldPath + \" -> \" + source.getPath());\n        return true;\n    }\n\n    // ----- search -----\n\n    public List<String> search(String path, SearchFilter filter) {\n        List<String> found = new ArrayList<>();\n        Entry start = find(path, \"find\");\n        if (start != null) collect(start, filter, found);\n        return found;\n    }\n\n    // Depth-first walk of the tree\n    private void collect(Entry entry, SearchFilter filter, List<String> found) {\n        if (filter.matches(entry)) found.add(entry.getPath());\n        if (entry instanceof Directory dir) {\n            dir.getChildren().forEach(child -> collect(child, filter, found));\n        }\n    }\n\n    public void tree(String path) {\n        Entry start = find(path, \"tree\");\n        if (start != null) printTree(start, \"\");\n    }\n\n    private void printTree(Entry entry, String indent) {\n        String name = entry == root ? \"/\" : entry.getName() + (entry.isDirectory() ? \"/\" : \"\");\n        System.out.println(indent + name + \"  (\" + entry.getSize() + \" B)\");\n        if (entry instanceof Directory dir) {\n            dir.getChildren().forEach(child -> printTree(child, indent + \"  \"));\n        }\n    }\n\n    // ----- path helpers -----\n\n    // Absolute (/a/b) or relative to the working directory (a/b, ../b, ./b).\n    // Returns null if any part is missing.\n    private Entry resolve(String path) {\n        Entry entry = path.startsWith(\"/\") ? root : current;\n        for (String part : path.split(\"/\")) {\n            if (part.isEmpty() || part.equals(\".\")) continue;\n            if (part.equals(\"..\")) {\n                entry = entry.getParent() == null ? entry : entry.getParent();\n                continue;\n            }\n            if (!(entry instanceof Directory dir)) return null;\n            entry = dir.getChild(part);\n            if (entry == null) return null;\n        }\n        return entry;\n    }\n\n    private Entry find(String path, String command) {\n        Entry entry = resolve(path);\n        if (entry == null) System.out.println(command + \": \" + path + \": no such file or directory.\");\n        return entry;\n    }\n\n    private Directory findDirectory(String path, String command) {\n        Entry entry = find(path, command);\n        if (entry == null) return null;\n        if (!entry.isDirectory()) {\n            System.out.println(command + \": \" + entry.getPath() + \" is not a directory.\");\n            return null;\n        }\n        return (Directory) entry;\n    }\n\n    private File asFile(Entry entry, String command) {\n        if (entry == null) return null;\n        if (entry.isDirectory()) {\n            System.out.println(command + \": \" + entry.getPath() + \" is a directory.\");\n            return null;\n        }\n        return (File) entry;\n    }\n\n    // Walk up from 'entry'. True if we meet 'ancestor' on the way.\n    private boolean isSameOrInside(Entry entry, Entry ancestor) {\n        for (Entry e = entry; e != null; e = e.getParent()) {\n            if (e == ancestor) return true;\n        }\n        return false;\n    }\n\n    private String parentOf(String path) {\n        int slash = path.lastIndexOf('/');\n        if (slash < 0) return \".\";\n        return slash == 0 ? \"/\" : path.substring(0, slash);\n    }\n\n    private String nameOf(String path) {\n        return path.substring(path.lastIndexOf('/') + 1);\n    }\n\n    private boolean isValidName(String name) {\n        if (name.isEmpty() || name.equals(\".\") || name.equals(\"..\")) {\n            System.out.println(\"Invalid name: '\" + name + \"'.\");\n            return false;\n        }\n        return true;\n    }\n\n    private String line(Entry entry) {\n        return (entry.isDirectory() ? \"d \" + entry.getName() + \"/\" : \"f \" + entry.getName())\n                + \"  \" + entry.getSize() + \" B\";\n    }\n}\n"}, {"path": "Main.java", "code": "package org.nailyourinterview.lld.file_system;\n\nimport org.nailyourinterview.lld.file_system.search.ExtensionFilter;\nimport org.nailyourinterview.lld.file_system.search.MinSizeFilter;\nimport org.nailyourinterview.lld.file_system.search.NameContainsFilter;\nimport org.nailyourinterview.lld.file_system.service.FileSystem;\n\npublic class Main {\n    public static void main(String[] args) {\n        FileSystem fs = new FileSystem();\n\n        System.out.println(\"--- 1. Build the tree ---\");\n        fs.mkdir(\"/home/alice/docs\");\n        fs.mkdir(\"/home/bob\");\n        fs.mkdir(\"/tmp\");\n\n        System.out.println(\"--- 2. Write and read files ---\");\n        fs.writeFile(\"/home/alice/docs/resume.txt\", \"Alice - Java developer\");\n        fs.writeFile(\"/home/alice/docs/notes.md\", \"# LLD\\n\");\n        fs.appendFile(\"/home/alice/docs/notes.md\", \"- Composite pattern\\n\");\n        fs.createFile(\"/home/bob/todo.txt\");\n        fs.writeFile(\"/tmp/cache.log\", \"cache miss x 3\");\n        System.out.print(\"cat notes.md:\\n\" + fs.readFile(\"/home/alice/docs/notes.md\"));\n\n        System.out.println(\"--- 3. Relative paths: cd, pwd, ls ---\");\n        fs.cd(\"/home/alice\");\n        System.out.println(\"pwd = \" + fs.pwd());\n        fs.ls(\"docs\");\n        fs.cd(\"../bob\");\n        System.out.println(\"pwd = \" + fs.pwd());\n        fs.writeFile(\"todo.txt\", \"buy milk\");\n        fs.ls(\".\");\n\n        System.out.println(\"--- 4. Move and rename ---\");\n        fs.move(\"/home/alice/docs/resume.txt\", \"/home/bob\");\n        fs.move(\"/home/bob/resume.txt\", \"/home/bob/cv.txt\");\n        fs.tree(\"/\");\n\n        System.out.println(\"--- 5. Search ---\");\n        System.out.println(\"*.txt          -> \" + fs.search(\"/\", new ExtensionFilter(\"txt\")));\n        System.out.println(\">= 10 B        -> \" + fs.search(\"/\", new MinSizeFilter(10)));\n        System.out.println(\"'o' in name+md -> \" + fs.search(\"/home\",\n                new NameContainsFilter(\"o\").and(new ExtensionFilter(\"md\"))));\n\n        System.out.println(\"--- 6. Invalid operations ---\");\n        fs.readFile(\"/home/carol/a.txt\");\n        fs.createFile(\"/home/bob/todo.txt\");\n        fs.mkdir(\"/home/bob/todo.txt/x\");\n        fs.cd(\"/tmp/cache.log\");\n        fs.readFile(\"/home\");\n        fs.move(\"/home\", \"/home/alice\");\n        fs.delete(\"/home\");\n        fs.delete(\"/\");\n\n        System.out.println(\"--- 7. Delete a directory ---\");\n        fs.cd(\"/\");\n        fs.delete(\"/home/alice\");\n        fs.delete(\"/tmp\");\n        fs.tree(\"/\");\n    }\n}\n"}], "output": "--- 1. Build the tree ---\nmkdir /home/alice/docs\nmkdir /home/bob\nmkdir /tmp\n--- 2. Write and read files ---\ntouch /home/alice/docs/resume.txt\nwrite /home/alice/docs/resume.txt (22 B)\ntouch /home/alice/docs/notes.md\nwrite /home/alice/docs/notes.md (6 B)\nappend /home/alice/docs/notes.md (26 B)\ntouch /home/bob/todo.txt\ntouch /tmp/cache.log\nwrite /tmp/cache.log (14 B)\ncat notes.md:\n# LLD\n- Composite pattern\n--- 3. Relative paths: cd, pwd, ls ---\npwd = /home/alice\nls /home/alice/docs\n  f notes.md  26 B\n  f resume.txt  22 B\npwd = /home/bob\nwrite /home/bob/todo.txt (8 B)\nls /home/bob\n  f todo.txt  8 B\n--- 4. Move and rename ---\nmv /home/alice/docs/resume.txt -> /home/bob/resume.txt\nmv /home/bob/resume.txt -> /home/bob/cv.txt\n/  (70 B)\n  home/  (56 B)\n    alice/  (26 B)\n      docs/  (26 B)\n        notes.md  (26 B)\n    bob/  (30 B)\n      cv.txt  (22 B)\n      todo.txt  (8 B)\n  tmp/  (14 B)\n    cache.log  (14 B)\n--- 5. Search ---\n*.txt          -> [/home/bob/cv.txt, /home/bob/todo.txt]\n>= 10 B        -> [/home/alice/docs/notes.md, /home/bob/cv.txt, /tmp/cache.log]\n'o' in name+md -> [/home/alice/docs/notes.md]\n--- 6. Invalid operations ---\ncat: /home/carol/a.txt: no such file or directory.\ntouch: /home/bob/todo.txt already exists.\nmkdir: /home/bob/todo.txt is a file.\ncd: /tmp/cache.log is not a directory.\ncat: /home is a directory.\nmv: cannot move /home inside itself.\nrm: /home holds the working directory.\nrm: cannot delete the root.\n--- 7. Delete a directory ---\nrm /home/alice\nrm /tmp\n/  (30 B)\n  home/  (30 B)\n    bob/  (30 B)\n      cv.txt  (22 B)\n      todo.txt  (8 B)\n", "main": "Main.java"}</script>
+</section>
+
+<!-- ============ 7. PATTERNS ============ -->
+<section id="patterns">
+<div class="prose">
+  <h2><span class="secnum">7</span>Design patterns</h2>
+  <p>Be honest in the interview. Say which patterns the code <i>uses</i> and which ones you <i>would add</i>.</p>
+  <div class="grid2">
+    <div class="card"><h4>Composite <span class="tag used">used</span></h4><p><code>Entry</code> ← <code>File</code> (leaf), <code>Directory</code> (composite, holds entries). <code>getSize()</code>, <code>getPath()</code> and the search walk treat both the same.</p></div>
+    <div class="card"><h4>Strategy / Specification <span class="tag used">used</span></h4><p><code>SearchFilter</code> with three rules and a default <code>and()</code> to combine them. A new rule is a new class or a lambda.</p></div>
+    <div class="card"><h4>Facade / service <span class="tag used">used</span></h4><p><code>FileSystem</code> is the one entry point. Callers pass path strings; they never touch a <code>Directory</code> map.</p></div>
+    <div class="card"><h4>Visitor <span class="tag could">would add</span></h4><p>Size, search, tree print and export are all walks. An <code>EntryVisitor</code> with <code>visitFile</code> / <code>visitDirectory</code> removes the <code>instanceof</code> checks and adds walks without editing the nodes.</p></div>
+    <div class="card"><h4>Command <span class="tag could">would add</span></h4><p><code>MkdirCommand</code>, <code>MoveCommand</code>, … with <code>execute()</code> / <code>undo()</code>. Gives undo, a history and a queue for one writer thread.</p></div>
+    <div class="card"><h4>Observer <span class="tag could">would add</span></h4><p><code>FileWatcher</code> listeners get “created / changed / deleted” events, like <code>inotify</code> or an IDE that reloads a file.</p></div>
+    <div class="card"><h4>Proxy <span class="tag could">would add</span></h4><p>A permission-checking <code>FileSystem</code> wrapper, or a lazy <code>File</code> that loads content from disk on first read.</p></div>
+    <div class="card"><h4>Two maps per directory <span class="tag avoid">avoid</span></h4><p><code>files</code> + <code>subDirs</code> doubles every method and lets a file and a folder share a name. Also avoid a Singleton <code>FileSystem</code>: tests need fresh trees.</p></div>
+  </div>
+  <div class="callout"><b class="t">SOLID check</b>
+    <ul>
+      <li><b>S</b> — Entry: name, parent, path. Directory: children. File: content. FileSystem: paths and commands. Filters: one rule each.</li>
+      <li><b>O</b> — A new search rule is a new class. A new entry type (link) edits <code>resolve()</code> — the known weak spot, which a Visitor would ease.</li>
+      <li><b>L</b> — Any <code>Entry</code> works in <code>getSize()</code>, <code>getPath()</code> and the search walk.</li>
+      <li><b>I</b> — <code>SearchFilter</code> has one abstract method.</li>
+      <li><b>D</b> — <code>search()</code> depends on <code>SearchFilter</code>, not on a concrete rule. <i>But</i> <code>FileSystem</code> creates <code>File</code> and <code>Directory</code> with <code>new</code> — an <code>EntryFactory</code> would help once links arrive.</li>
+    </ul>
+  </div>
+  <h3>Example: new search rules, no change to the walk</h3>
+<div class="code"><div class="chead"><span>search/GlobFilter.java (would add)</span><button class="btn copy" type="button">Copy</button></div><pre><code class="language-java">public class GlobFilter implements SearchFilter {
+    private final Pattern pattern;
+
+    public GlobFilter(String glob) {                 // "*.md", "note?.txt"
+        this.pattern = Pattern.compile(glob.replace(".", "\\.")
+                .replace("*", ".*").replace("?", "."));
+    }
+
+    @Override
+    public boolean matches(Entry entry) {
+        return pattern.matcher(entry.getName()).matches();
+    }
+}
+
+fs.search("/", new GlobFilter("*.md").and(new MinSizeFilter(10)));
+
+// SearchFilter has one abstract method, so a lambda works too: empty folders
+fs.search("/", e -&gt; e.isDirectory() &amp;&amp; e.getSize() == 0);</code></pre></div>
+  <p class="why">No line in <code>FileSystem</code> changes. That is the Open/Closed principle at work.</p>
+</div>
+</section>
+
+<!-- ============ 8. SIMILAR ============ -->
+<section id="similar">
+<div class="prose">
+  <h2><span class="secnum">8</span>Similar problems</h2>
+  <p>A problem is similar only if the <b>tree model carries over</b>: nodes that are either leaves or containers, a parent link, lookup by path, a value that rolls up from the leaves, and moves that must not make a cycle. The problems below share that skeleton. They are ranked by how much of this design you can reuse.</p>
+
+  <div class="callout info"><b class="t">The shared skeleton</b>
+    <p><code>Entry</code> (name, parent) ← <code>Leaf</code> | <code>Container</code> (<code>Map&lt;name, Entry&gt;</code>) · <code>resolve(path)</code> walks from the root · <code>getSize()</code> sums the children · <code>move</code> walks up from the target to refuse a cycle · <code>search</code> is a depth-first walk with a filter.</p>
+  </div>
+
+  <div class="tablewrap"><table>
+    <thead><tr><th>Problem</th><th>Reuse from File System</th><th>New part to learn</th></tr></thead>
+    <tbody>
+      <tr><td><b>In-memory file system</b> (LeetCode 588)<br><span class="pill easy" style="margin-top:4px;display:inline-block">closest</span></td><td>All of it: <code>ls</code>, <code>mkdir</code>, add content, read content.</td><td>Nothing new — a trimmed version. Good speed drill.</td></tr>
+      <tr><td><b>Cloud drive</b> (Google Drive / Dropbox folders)</td><td>Folder tree, move, rename, size, search.</td><td>Owners and sharing per node (inherit from the parent), file versions, trash instead of delete.</td></tr>
+      <tr><td><b>Unix shell with permissions and links</b></td><td>The whole tree and <code>resolve()</code>.</td><td>rwx checks per node; <code>Link</code> entries that <code>resolve()</code> follows with a hop limit.</td></tr>
+      <tr><td><b>Hierarchical config / key store</b> (ZooKeeper znodes, etcd keys)</td><td>Path lookup, create, delete, list children.</td><td>Every node holds data <i>and</i> children; watches fire on change (Observer); version numbers for safe updates.</td></tr>
+      <tr><td><b>Product category tree</b> (Amazon departments)</td><td>Tree, path / breadcrumb, move a subtree without a cycle.</td><td>A product can sit in many categories; counts roll up like folder size.</td></tr>
+      <tr><td><b>Org chart</b></td><td>Composite: an employee is a leaf, a manager holds employees; headcount and salary roll up like size.</td><td>No paths; queries go by manager chain; a re-org is a <code>move</code>.</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="callout tip"><b class="t">Practice order</b>File System (this) → LeetCode 588 (speed) → Unix shell with links and permissions → Cloud drive (sharing, versions) → ZooKeeper-style store (watches).</div>
+</div>
+</section>
+
+<!-- ============ 9. RECAP ============ -->
+<section id="recap">
+<div class="prose">
+  <h2><span class="secnum">9</span>Revision cheat sheet</h2>
+  <p style="color:var(--muted)">Read top to bottom, in the order you speak in the interview. Then close your eyes and use the flip cards.</p>
+
+  <div class="tldr">
+    <span class="tldr-k">In one breath</span>
+    <b>Entry</b> (name, parent) is the base. <b>File</b> holds text; <b>Directory</b> holds a sorted <code>Map&lt;name, Entry&gt;</code> — the <b>Composite</b>, so size is a sum over children. <b>FileSystem</b> keeps <code>root</code> and the working directory, turns every path into a node with one <code>resolve()</code> walk, and refuses moves into a node's own subtree by walking up the parents. <b>SearchFilters</b> are small rules joined with <code>and()</code>.
+  </div>
+
+  <div class="tl">
+    <div class="tl-step">
+      <div class="tl-dot" style="background:#EFF1F4;border-color:#A9B1BD">1</div>
+      <div class="tl-body">
+        <h4>Understand the system</h4>
+        <p class="say">A tree from <code>/</code>. Folders hold files and folders. Commands take paths: <code>mkdir</code>, <code>write</code>, <code>cat</code>, <code>ls</code>, <code>cd</code>, <code>mv</code>, <code>rm</code>, <code>find</code>.</p>
+      </div>
+    </div>
+
+    <div class="tl-step">
+      <div class="tl-dot" style="background:#FFF6C7;border-color:#FFD43B">2</div>
+      <div class="tl-body">
+        <h4>Requirement gathering</h4>
+        <div class="bucket">
+          <span class="bk">Core</span><span>tree + unique names · mkdir -p · create / write / append / read · ls sorted · cd / pwd · mv (into or rename) · rm -r · size = sum · search · reject bad input</span>
+          <span class="bk">Extensibility</span><span>search rules · links · timestamps · permissions · undo · watchers · new walks (Visitor) · quota · real storage</span>
+          <span class="bk">Dynamic</span><span>every path and text at runtime · absolute or relative · filters combined at the call</span>
+          <span class="bk">High traffic</span><span>not for one shell · shared: cwd per session, read-write lock, or per-directory locks top-down</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="tl-step">
+      <div class="tl-dot" style="background:#FFE3E3;border-color:#F27474">3</div>
+      <div class="tl-body">
+        <h4>Core entities</h4>
+        <div class="chips">
+          <span class="chip">FileSystem (root, current)</span><span class="chip hl">Entry → File, Directory</span><span class="chip hl">Directory (Map name → Entry)</span>
+          <span class="chip hl">SearchFilter → Extension, MinSize, NameContains</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="tl-step">
+      <div class="tl-dot" style="background:#EFE7FF;border-color:#A98BF5">4</div>
+      <div class="tl-body">
+        <h4>Class diagram + flow</h4>
+        <div class="figure" id="figRev" style="margin:4px 0 0">
+          <div class="fhead"><b>Who owns what · who calls whom</b><span class="sp"></span>
+            <button class="btn" type="button" data-fs="figRev">⤢ Full screen</button>
+            <button class="btn primary" type="button" data-png="revSvg" data-name="file-system-revision.png">⬇ PNG</button>
+          </div>
+          <div class="canvas"><svg id="revSvg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 600" role="img" aria-label="Class diagram with call flow"></svg></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tl-step">
+      <div class="tl-dot" style="background:#EFF1F4;border-color:#A9B1BD">5</div>
+      <div class="tl-body">
+        <h4>Working code — the only lines to remember</h4>
+<pre class="tree"><span class="tc">// Composite: a folder's size is the sum of its children</span>
+int getSize() { return children.values().stream().mapToInt(Entry::getSize).sum(); }
+
+<span class="tc">// One walk for every path</span>
+Entry e = path.startsWith("/") ? root : current;
+for (String part : path.split("/")) {
+    if (part.isEmpty() || part.equals(".")) continue;
+    if (part.equals("..")) { e = e.getParent() == null ? e : e.getParent(); continue; }
+    if (!(e instanceof Directory d) || (e = d.getChild(part)) == null) return null;
+}
+
+<span class="tc">// mv / rm guard: walk up, meet the source → refuse</span>
+for (Entry x = newParent; x != null; x = x.getParent()) if (x == source) return false;</pre>
+      </div>
+    </div>
+  </div>
+
+  <h3>Traps → fixes</h3>
+  <div class="tablewrap"><table class="traps">
+    <tbody>
+      <tr><td>Two maps per directory (<code>files</code>, <code>subDirs</code>) → name clash, double code</td><td>One <code>Map&lt;name, Entry&gt;</code> (done)</td></tr>
+      <tr><td>Store the full path in each node → stale after every <code>mv</code> of an ancestor</td><td>Store the parent; compute the path (done)</td></tr>
+      <tr><td><code>mv /home /home/alice</code> → a cycle; the subtree drops out of the tree</td><td>Walk up from the new parent; meet the source → refuse (done)</td></tr>
+      <tr><td><code>rm</code> the folder you stand in → <code>cd ..</code> from a detached node</td><td>Same walk from <code>current</code> (done)</td></tr>
+      <tr><td><code>mkdir /a/b/file.txt/c</code> creates <code>a</code> and <code>b</code>, then fails → half done</td><td>Check the whole path first, then create; or roll back the new nodes</td></tr>
+      <tr><td><code>Directory.getSize()</code> walks the whole subtree on every call → slow on big trees</td><td>Cache the size in each directory; on write, add the change to every ancestor (O(depth))</td></tr>
+      <tr><td><code>rm</code> on a folder deletes everything with no flag</td><td>Add <code>recursive</code>; refuse a non-empty folder without it</td></tr>
+      <tr><td>Recursive walk on a very deep tree → <code>StackOverflowError</code></td><td>Use an explicit <code>Deque</code> stack for <code>collect</code> and <code>printTree</code></td></tr>
+      <tr><td>One <code>current</code> field → all users share one <code>cd</code>; plain <code>TreeMap</code> is not thread-safe</td><td><code>Session</code> per user; a read-write lock, or per-directory locks taken top-down</td></tr>
+      <tr><td>Unknown path, file used as a folder, folder used as a file, name clash, <code>..</code> above root</td><td>Validated in the service; <code>..</code> at root stays at root (done)</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>Patterns in one look</h3>
+  <div class="pat">
+    <div><span class="tag used">used</span>Composite (File / Directory) · Strategy / Specification (SearchFilter + and) · service facade</div>
+    <div><span class="tag could">add</span>Visitor (walks) · Command (undo) · Observer (watchers) · Proxy (permissions, lazy load)</div>
+    <div><span class="tag avoid">avoid</span>two maps per folder · stored full paths · Singleton FileSystem</div>
+  </div>
+
+  <h3>Test yourself</h3>
+  <div class="fc-bar">
+    <span style="color:var(--muted);font-size:14px">Say the answer out loud first. Then tap the card.</span>
+    <button class="btn" type="button" id="fcAll">Show all answers</button>
+  </div>
+  <div class="fc-grid" id="fcGrid">
+    <button class="fc" type="button"><span class="q">Which pattern models files and folders?</span><span class="a">Composite. <code>Entry</code> is the base; <code>File</code> is the leaf; <code>Directory</code> holds a <code>Map&lt;name, Entry&gt;</code> and is an <code>Entry</code> too.</span></button>
+    <button class="fc" type="button"><span class="q">How is a directory's size computed?</span><span class="a">The sum of <code>getSize()</code> over its children. Recursion ends at files (content length).</span></button>
+    <button class="fc" type="button"><span class="q">Why store the parent and not the full path?</span><span class="a">A move changes one map entry; every path below stays right because <code>getPath()</code> walks up at call time.</span></button>
+    <button class="fc" type="button"><span class="q">You are in <code>/home/alice</code>. Resolve <code>../bob/./todo.txt</code>.</span><span class="a"><code>..</code> → /home, <code>bob</code> → /home/bob, <code>.</code> → stay, <code>todo.txt</code> → /home/bob/todo.txt.</span></button>
+    <button class="fc" type="button"><span class="q">How do you stop <code>mv /home /home/alice</code>?</span><span class="a">Walk up from the new parent (alice → home). If you meet the source, refuse. The same helper stops <code>rm</code> of the working directory's ancestor.</span></button>
+    <button class="fc" type="button"><span class="q"><code>mv a b</code>: rename or move into?</span><span class="a">If <code>b</code> exists and is a directory: move into it, keep the name. Otherwise: parent of <code>b</code> must be a directory; the new name is the last part of <code>b</code>.</span></button>
+    <button class="fc" type="button"><span class="q">Find <code>.md</code> files with “o” in the name?</span><span class="a"><code>new NameContainsFilter("o").and(new ExtensionFilter("md"))</code> — a default method on <code>SearchFilter</code>.</span></button>
+    <button class="fc" type="button"><span class="q">Make it safe for many users?</span><span class="a">Working directory per <code>Session</code>. Then a read-write lock on the tree, or per-directory locks taken from the root down; <code>mv</code> locks both parents in path order.</span></button>
+  </div>
+</div>
+<footer class="prose">Notes for revision. Code in <code>src/main/java/org/nailyourinterview/lld/file_system</code>. Layout inspired by the AlgoMaster LLD format.</footer>
+</section>
+
+</main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-java.min.js"></script>
+<script>
+(function(){
+/* ---------- theme ---------- */
+const root = document.documentElement;
+try { const t = localStorage.getItem('sl-theme'); if (t) root.dataset.theme = t; } catch(e){}
+document.getElementById('themeBtn').addEventListener('click', () => {
+  const dark = root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+  root.dataset.theme = dark ? 'light' : 'dark';
+  try { localStorage.setItem('sl-theme', root.dataset.theme); } catch(e){}
+});
+
+/* ---------- toc, scrollspy, progress ---------- */
+document.getElementById('mtoc').innerHTML = document.getElementById('toc').innerHTML.replace(/<h4>.*?<\/h4>/,'');
+const links = [...document.querySelectorAll('#toc a')];
+const obs = new IntersectionObserver(es => {
+  es.forEach(e => { if (e.isIntersecting) links.forEach(a => a.classList.toggle('active', a.getAttribute('href') === '#' + e.target.id)); });
+}, { rootMargin: '-30% 0px -65% 0px' });
+document.querySelectorAll('main section').forEach(s => obs.observe(s));
+const bar = document.getElementById('progress');
+addEventListener('scroll', () => {
+  const h = document.documentElement.scrollHeight - innerHeight;
+  bar.style.width = (h > 0 ? scrollY / h * 100 : 0) + '%';
+}, { passive: true });
+
+/* ---------- copy buttons ---------- */
+document.querySelectorAll('.code .copy').forEach(b => b.addEventListener('click', () => {
+  const txt = b.closest('.code').querySelector('code').innerText;
+  navigator.clipboard && navigator.clipboard.writeText(txt).then(() => { b.textContent = 'Copied'; setTimeout(() => b.textContent = 'Copy', 1200); });
+}));
+
+/* ---------- SVG diagram engine (miro-style) ---------- */
+const NS = 'http://www.w3.org/2000/svg';
+const FONT = "Inter, 'Segoe UI', Arial, sans-serif";
+const MONO = "'JetBrains Mono', Consolas, 'Courier New', monospace";
+function el(tag, attrs, parent){ const n = document.createElementNS(NS, tag); for (const k in attrs) n.setAttribute(k, attrs[k]); if (parent) parent.appendChild(n); return n; }
+function txt(parent, x, y, s, attrs){ const t = el('text', Object.assign({x, y, style: 'font-variant-ligatures:none'}, attrs || {}), parent); t.textContent = s; return t; }
+
+function setupCanvas(svg){
+  const defs = el('defs', {}, svg);
+  const pat = el('pattern', {id: svg.id + '-dots', width: 22, height: 22, patternUnits: 'userSpaceOnUse'}, defs);
+  el('circle', {cx: 2, cy: 2, r: 1.2, fill: '#d5d9e0'}, pat);
+  const f = el('filter', {id: svg.id + '-sh', x: '-10%', y: '-10%', width: '130%', height: '140%'}, defs);
+  el('feDropShadow', {dx: 0, dy: 3, stdDeviation: 4, 'flood-color': '#1f2a44', 'flood-opacity': .14}, f);
+  const vb = svg.viewBox.baseVal;
+  el('rect', {x: 0, y: 0, width: vb.width, height: vb.height, fill: '#fbfbfc'}, svg);
+  el('rect', {x: 0, y: 0, width: vb.width, height: vb.height, fill: `url(#${svg.id}-dots)`}, svg);
+  return { edges: el('g', {}, svg), nodes: el('g', {}, svg), deco: el('g', {}, svg), labels: el('g', {}, svg) };
+}
+
+const PALETTE = {
+  yellow: ['#FFF6C7', '#FFD43B', '#8a6d00'],
+  blue:   ['#E3EEFF', '#7DAEF8', '#1d4f99'],
+  sky:    ['#EAF4FF', '#A8CCFB', '#1d4f99'],
+  green:  ['#E2F7E7', '#69C985', '#1b6b34'],
+  purple: ['#EFE7FF', '#A98BF5', '#4b2ea3'],
+  orange: ['#FFEADB', '#FFA463', '#8a3b00'],
+  red:    ['#FFE3E3', '#F27474', '#8f1d1d'],
+  teal:   ['#DBF7EF', '#45C9A4', '#0d6650'],
+  pink:   ['#FDE6F4', '#EA82C0', '#8a1e5c'],
+  gray:   ['#EFF1F4', '#A9B1BD', '#3d4450']
+};
+
+function classBox(g, svgId, b){
+  const [body, head, ink] = PALETTE[b.c];
+  const LH = 17, PAD = 8, headH = b.st ? 48 : 34;
+  const fH = b.f.length ? b.f.length * LH + PAD * 2 : 0;
+  const mH = b.m.length ? b.m.length * LH + PAD * 2 : 0;
+  const h = headH + fH + mH;
+  const grp = el('g', {transform: `translate(${b.x},${b.y})`, filter: `url(#${svgId}-sh)`}, g);
+  el('rect', {width: b.w, height: h, rx: 12, fill: body, stroke: head, 'stroke-width': 1.5}, grp);
+  el('path', {d: `M0 12 A12 12 0 0 1 12 0 H${b.w - 12} A12 12 0 0 1 ${b.w} 12 V${headH} H0 Z`, fill: head}, grp);
+  if (b.st) txt(grp, b.w / 2, 18, b.st, {'text-anchor': 'middle', 'font-family': FONT, 'font-size': 11.5, 'font-style': 'italic', fill: '#1f2328', opacity: .75});
+  txt(grp, b.w / 2, b.st ? 38 : 23, b.name, {'text-anchor': 'middle', 'font-family': FONT, 'font-size': 16, 'font-weight': 800, fill: '#1f2328', 'font-style': b.abs ? 'italic' : 'normal'});
+  let y = headH;
+  if (b.f.length){
+    b.f.forEach((s, i) => txt(grp, 12, y + PAD + LH * (i + 1) - 4, s, {'font-family': MONO, 'font-size': 12.5, fill: ink}));
+    y += fH;
+    if (b.m.length) el('line', {x1: 0, y1: y, x2: b.w, y2: y, stroke: head, 'stroke-width': 1}, grp);
+  }
+  b.m.forEach((s, i) => txt(grp, 12, y + PAD + LH * (i + 1) - 4, s, {'font-family': MONO, 'font-size': 12.5, fill: '#1f2328'}));
+  b.h = h;
+}
+
+function roundedPath(pts, r){
+  if (pts.length < 3) return `M${pts[0][0]} ${pts[0][1]} L${pts[1][0]} ${pts[1][1]}`;
+  let d = `M${pts[0][0]} ${pts[0][1]}`;
+  for (let i = 1; i < pts.length - 1; i++){
+    const [px, py] = pts[i - 1], [cx, cy] = pts[i], [nx, ny] = pts[i + 1];
+    const l1 = Math.hypot(cx - px, cy - py), l2 = Math.hypot(nx - cx, ny - cy);
+    const rr = Math.min(r, l1 / 2, l2 / 2);
+    const ax = cx - (cx - px) / l1 * rr, ay = cy - (cy - py) / l1 * rr;
+    const bx = cx + (nx - cx) / l2 * rr, by = cy + (ny - cy) / l2 * rr;
+    d += ` L${ax} ${ay} Q${cx} ${cy} ${bx} ${by}`;
+  }
+  const last = pts[pts.length - 1];
+  return d + ` L${last[0]} ${last[1]}`;
+}
+function unit(a, b){ const l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; return [(b[0] - a[0]) / l, (b[1] - a[1]) / l]; }
+
+function edge(L, e){
+  const color = e.color || '#4a5263';
+  const dashed = e.kind === 'dep';
+  el('path', {d: roundedPath(e.p, 14), fill: 'none', stroke: color, 'stroke-width': 1.8, 'stroke-dasharray': dashed ? '6 5' : 'none', 'stroke-linecap': 'round'}, L.edges);
+  const p0 = e.p[0], p1 = e.p[1], pn = e.p[e.p.length - 1], pm = e.p[e.p.length - 2];
+  if (e.kind === 'comp' || e.kind === 'agg'){
+    const [ux, uy] = unit(p0, p1), vx = -uy, vy = ux;
+    const pt = (a, b) => `${p0[0] + ux * a + vx * b},${p0[1] + uy * a + vy * b}`;
+    el('polygon', {points: [pt(0, 0), pt(9, 6), pt(18, 0), pt(9, -6)].join(' '), fill: e.kind === 'comp' ? color : '#ffffff', stroke: color, 'stroke-width': 1.6}, L.deco);
+  }
+  if (e.kind === 'inh'){
+    const [ux, uy] = unit(pm, pn), vx = -uy, vy = ux;
+    const pt = (a, b) => `${pn[0] - ux * a + vx * b},${pn[1] - uy * a + vy * b}`;
+    el('polygon', {points: [pt(0, 0), pt(16, 9), pt(16, -9)].join(' '), fill: '#ffffff', stroke: color, 'stroke-width': 1.6}, L.deco);
+  }
+  if (e.kind === 'dep' || e.kind === 'assoc'){
+    const [ux, uy] = unit(pm, pn), vx = -uy, vy = ux;
+    const pt = (a, b) => `${pn[0] - ux * a + vx * b},${pn[1] - uy * a + vy * b}`;
+    el('polyline', {points: [pt(12, 7), pt(0, 0), pt(12, -7)].join(' '), fill: 'none', stroke: color, 'stroke-width': 1.8, 'stroke-linejoin': 'round', 'stroke-linecap': 'round'}, L.deco);
+  }
+  if (e.kind === 'flow'){
+    const [ux, uy] = unit(pm, pn), vx = -uy, vy = ux;
+    const pt = (a, b) => `${pn[0] - ux * a + vx * b},${pn[1] - uy * a + vy * b}`;
+    el('polygon', {points: [pt(0, 0), pt(12, 6), pt(12, -6)].join(' '), fill: color}, L.deco);
+  }
+  if (e.kind === 'merge') el('circle', {cx: pn[0], cy: pn[1], r: 4, fill: color}, L.deco);
+  if (e.label) label(L, e.label[0], e.label[1], e.label[2], e.labelColor, e.labelSize);
+}
+function label(L, x, y, s, color, size){
+  const t = txt(L.labels, x, y + (size ? size / 3 : 4), s, {'text-anchor': 'middle', 'font-family': FONT, 'font-size': size || 12, 'font-weight': 600, fill: color || '#3d4450'});
+  const bb = t.getBBox();
+  const r = el('rect', {x: bb.x - 7, y: bb.y - 3, width: bb.width + 14, height: bb.height + 6, rx: 9, fill: '#ffffff', stroke: '#d9dde4'});
+  L.labels.insertBefore(r, t);
+}
+function sticky(L, svgId, x, y, w, h, color, title, lines, rot, fs){
+  fs = fs || 13;
+  const g = el('g', {transform: `translate(${x},${y}) rotate(${rot || 0})`, filter: `url(#${svgId}-sh)`}, L.nodes);
+  el('rect', {width: w, height: h, rx: 4, fill: color}, g);
+  txt(g, 14, 12 + fs + 1, title, {'font-family': FONT, 'font-size': fs + 1, 'font-weight': 800, fill: '#1f2328'});
+  lines.forEach((s, i) => txt(g, 14, 24 + fs * 2 + i * fs * 1.45, s, {'font-family': FONT, 'font-size': fs, fill: '#2f3540'}));
+  return g;
+}
+
+/* ---------- class diagram ---------- */
+(function(){
+  const svg = document.getElementById('classSvg');
+  const L = setupCanvas(svg);
+  txt(L.labels, 40, 34, 'File System — Class Diagram', {'font-family': FONT, 'font-size': 20, 'font-weight': 800, fill: '#1f2328'});
+  const boxes = [
+    {name: 'FileSystem', st: '«service»', x: 40, y: 70, w: 440, c: 'yellow', f: ['- root: Directory', '- current: Directory'], m: ['+ mkdir(path): boolean', '+ cd(path): boolean', '+ pwd(): String', '+ ls(path)', '+ createFile(path): boolean', '+ writeFile(path, text): boolean', '+ appendFile(path, text): boolean', '+ readFile(path): String', '+ delete(path): boolean', '+ move(from, to): boolean', '+ search(path, filter): List<String>', '+ tree(path)', '- resolve(path): Entry', '- isSameOrInside(entry, ancestor)']},
+    {name: 'Entry', st: '«abstract»', abs: true, x: 640, y: 70, w: 420, c: 'blue', f: ['- name: String', '- parent: Directory'], m: ['+ getSize(): int   {abstract}', '+ isDirectory(): boolean   {abstract}', '+ getPath(): String']},
+    {name: 'File', x: 560, y: 340, w: 300, c: 'green', f: ['- content: StringBuilder'], m: ['+ read(): String', '+ write(text)', '+ append(text)', '+ getExtension(): String', '+ getSize(): int']},
+    {name: 'Directory', x: 920, y: 340, w: 380, c: 'purple', f: ['- children: Map<String, Entry>'], m: ['+ getChild(name): Entry', '+ hasChild(name): boolean', '+ addChild(entry)', '+ removeChild(name)', '+ getChildren(): Collection<Entry>', '+ getSize(): int   // sum']},
+    {name: 'SearchFilter', st: '«interface»', abs: true, x: 40, y: 680, w: 700, c: 'orange', f: [], m: ['+ matches(entry): boolean', '+ and(other): SearchFilter   {default}']},
+    {name: 'ExtensionFilter', x: 40, y: 860, w: 220, c: 'orange', f: ['- extension: String'], m: ['+ matches(entry)']},
+    {name: 'MinSizeFilter', x: 280, y: 860, w: 200, c: 'orange', f: ['- minSize: int'], m: ['+ matches(entry)']},
+    {name: 'NameContainsFilter', x: 500, y: 860, w: 240, c: 'orange', f: ['- text: String'], m: ['+ matches(entry)']}
+  ];
+  boxes.forEach(b => classBox(L.nodes, svg.id, b));
+  /* FileSystem 70..422, Entry 70..235, File 340..508, Directory 340..525, SearchFilter 680..778, filters 860..960 */
+  const E = [
+    {kind: 'inh',  p: [[710, 340], [710, 235]], label: [710, 288, 'is a']},
+    {kind: 'inh',  p: [[1000, 340], [1000, 235]], label: [1000, 288, 'is a']},
+    {kind: 'comp', p: [[1300, 400], [1350, 400], [1350, 130], [1060, 130]], label: [1350, 200, 'has many']},
+    {kind: 'assoc', p: [[1060, 100], [1420, 100], [1420, 470], [1300, 470]], label: [1420, 360, 'may have 1 (parent)']},
+    {kind: 'comp', p: [[400, 422], [400, 600], [1110, 600], [1110, 525]], label: [760, 600, 'has a (root)']},
+    {kind: 'dep',  p: [[480, 400], [560, 400]], label: [520, 372, 'creates']},
+    {kind: 'dep',  p: [[480, 150], [640, 150]], label: [560, 150, 'uses']},
+    {kind: 'dep',  p: [[200, 422], [200, 680]], label: [200, 550, 'uses']},
+    {kind: 'inh',  p: [[150, 860], [150, 778]], label: [150, 820, 'is a']},
+    {kind: 'inh',  p: [[380, 860], [380, 778]], label: [380, 820, 'is a']},
+    {kind: 'inh',  p: [[620, 860], [620, 778]], label: [620, 820, 'is a']}
+  ];
+  E.forEach(e => edge(L, e));
+
+  // legend
+  const lg = el('g', {transform: 'translate(1220,700)', filter: `url(#${svg.id}-sh)`}, L.nodes);
+  el('rect', {width: 300, height: 246, rx: 12, fill: '#ffffff', stroke: '#dfe3ea'}, lg);
+  txt(lg, 16, 28, 'Legend', {'font-family': FONT, 'font-size': 14, 'font-weight': 800, fill: '#1f2328'});
+  const LL = {edges: lg, deco: lg, labels: lg};
+  const items = [['comp', 'Composition (owns, same lifetime)'], ['agg', 'Aggregation (has, lives outside)'], ['assoc', 'Association (knows about)'], ['dep', 'Dependency (uses / creates)'], ['inh', 'Inheritance (is-a)']];
+  items.forEach(([k, s], i) => {
+    const y = 60 + i * 36;
+    edge(LL, {kind: k, p: [[18, y], [72, y]]});
+    txt(lg, 86, y + 4, s, {'font-family': FONT, 'font-size': 12.5, fill: '#2f3540'});
+  });
+  txt(lg, 16, 234, '- private   + public   # protected', {'font-family': MONO, 'font-size': 11.5, fill: '#5b6471'});
+
+  // sticky notes
+  sticky(L, svg.id, 800, 670, 360, 140, '#FFF3A3', '🌳 Composite', ['A Directory is an Entry', 'and holds Entries.', 'getSize() recurses to the files.'], -1, 15);
+  sticky(L, svg.id, 800, 840, 360, 130, '#D3F5E1', '🛡 No cycles', ['mv: walk up from the new parent;', 'meet the source → refuse'], 1, 15);
+})();
+
+/* ---------- flowchart ---------- */
+(function(){
+  const svg = document.getElementById('flowSvg');
+  const L = setupCanvas(svg);
+  txt(L.labels, 30, 34, 'FileSystem.move(from, to)  — mv', {'font-family': FONT, 'font-size': 20, 'font-weight': 800, fill: '#1f2328'});
+  function node(n){
+    const [body, head] = PALETTE[n.c];
+    const g = el('g', {filter: `url(#${svg.id}-sh)`}, L.nodes);
+    const x = n.x - n.w / 2, y = n.y - n.h / 2;
+    if (n.shape === 'dec') el('polygon', {points: `${n.x},${y} ${x + n.w},${n.y} ${n.x},${y + n.h} ${x},${n.y}`, fill: body, stroke: head, 'stroke-width': 2}, g);
+    else el('rect', {x, y, width: n.w, height: n.h, rx: n.shape === 'term' ? n.h / 2 : 10, fill: body, stroke: head, 'stroke-width': 2}, g);
+    const lines = n.t.split('\n');
+    lines.forEach((s, i) => txt(g, n.x, n.y + 5 + (i - (lines.length - 1) / 2) * 18, s, {'text-anchor': 'middle', 'font-family': n.mono ? MONO : FONT, 'font-size': n.mono ? 13 : 14, 'font-weight': n.mono ? 500 : 700, fill: '#1f2328'}));
+  }
+  const N = [
+    {x: 480, y: 70,  w: 300, h: 46, shape: 'term', c: 'purple', t: 'move(from, to)', mono: true},
+    {x: 480, y: 180, w: 300, h: 100, shape: 'dec', c: 'yellow', t: 'source found\nand not root ?', mono: true},
+    {x: 830, y: 180, w: 220, h: 58, c: 'red', t: 'print error\nreturn false'},
+    {x: 480, y: 310, w: 320, h: 100, shape: 'dec', c: 'yellow', t: 'to is an existing\ndirectory ?', mono: true},
+    {x: 290, y: 430, w: 250, h: 60, c: 'blue', t: 'move into it\nnewParent = target\nkeep the name'},
+    {x: 670, y: 430, w: 250, h: 60, c: 'blue', t: 'rename\nnewParent = parentOf(to)\nnewName = nameOf(to)'},
+    {x: 480, y: 560, w: 340, h: 110, shape: 'dec', c: 'yellow', t: 'newParent is source\nor inside it ?', mono: true},
+    {x: 830, y: 560, w: 220, h: 58, c: 'red', t: '"inside itself"\nreturn false'},
+    {x: 480, y: 700, w: 300, h: 100, shape: 'dec', c: 'yellow', t: 'newName taken ?', mono: true},
+    {x: 830, y: 700, w: 220, h: 58, c: 'red', t: '"already exists"\nreturn false'},
+    {x: 480, y: 810, w: 380, h: 50, c: 'green', t: 'removeChild · setName · addChild', mono: true},
+    {x: 480, y: 900, w: 300, h: 46, shape: 'term', c: 'green', t: 'return true', mono: true}
+  ];
+  N.forEach(node);
+  sticky(L, svg.id, 20, 650, 250, 150, '#FFF3A3', '🛡 Cycle check', ['walk up from newParent', 'mv /home /home/alice:', 'alice → home = source', '→ refuse'], 0, 14);
+  sticky(L, svg.id, 700, 790, 240, 120, '#D3F5E1', '🌳 Cheap move', ['one map remove,', 'one map put: the whole', 'subtree comes along'], 0, 14);
+  const F = [
+    {kind: 'flow', p: [[480, 93], [480, 130]]},
+    {kind: 'flow', p: [[630, 180], [720, 180]], label: [675, 180, 'no'], labelColor: '#cf222e'},
+    {kind: 'flow', p: [[480, 230], [480, 260]], label: [506, 245, 'yes'], labelColor: '#1a7f37'},
+    {kind: 'flow', p: [[320, 310], [290, 310], [290, 400]], label: [290, 350, 'yes'], labelColor: '#1a7f37'},
+    {kind: 'flow', p: [[640, 310], [670, 310], [670, 400]], label: [670, 350, 'no'], labelColor: '#3d4450'},
+    {kind: 'flow', p: [[290, 460], [290, 482], [480, 482], [480, 505]]},
+    {kind: 'merge', p: [[670, 460], [670, 482], [480, 482]]},
+    {kind: 'flow', p: [[650, 560], [720, 560]], label: [685, 560, 'yes'], labelColor: '#cf222e'},
+    {kind: 'flow', p: [[480, 615], [480, 650]], label: [504, 632, 'no'], labelColor: '#1a7f37'},
+    {kind: 'flow', p: [[630, 700], [720, 700]], label: [675, 700, 'yes'], labelColor: '#cf222e'},
+    {kind: 'flow', p: [[480, 750], [480, 785]], label: [504, 767, 'no'], labelColor: '#1a7f37'},
+    {kind: 'flow', p: [[480, 835], [480, 877]]},
+    {kind: 'flow', p: [[330, 900], [60, 900], [60, 70], [330, 70]], label: [60, 150, 'next command'], labelColor: '#5b5bd6'}
+  ];
+  F.forEach(e => edge(L, e));
+})();
+
+/* ---------- interview flow ---------- */
+(function(){
+  const svg = document.getElementById('stepsSvg');
+  const L = setupCanvas(svg);
+  const X = 440, W = 260, H = 64;
+  const steps = [
+    {t: 'Understand the system', c: 'gray', y: 40, href: '#overview'},
+    {t: 'Requirement gathering', c: 'yellow', y: 170, href: '#requirements'},
+    {t: 'Core entities + breakdown', c: 'red', y: 320, href: '#entities'},
+    {t: 'Class diagram with flow', c: 'purple', y: 470, href: '#classes'},
+    {t: 'Working code', c: 'gray', y: 610, href: '#code'}
+  ];
+  steps.forEach((st, i) => {
+    const [body, head] = PALETTE[st.c];
+    const a = el('a', {href: st.href}, L.nodes);
+    const g = el('g', {filter: `url(#${svg.id}-sh)`, style: 'cursor:pointer'}, a);
+    el('rect', {x: X, y: st.y, width: W, height: H, rx: 10, fill: body, stroke: head, 'stroke-width': 2.5}, g);
+    txt(g, X + W / 2, st.y + H / 2 + 6, st.t, {'text-anchor': 'middle', 'font-family': FONT, 'font-size': 17, 'font-weight': 800, fill: '#1f2328'});
+    if (i) edge(L, {kind: 'flow', p: [[X + W / 2, steps[i - 1].y + H], [X + W / 2, st.y]], color: '#1f2328'});
+  });
+
+  // the 3 requirement buckets
+  const ry = 170 + H / 2;
+  sticky(L, svg.id, 790, 20, 380, 110, '#FFF3A3', '① Extensibility (new features)', ['Search rule → SearchFilter', 'Links, permissions → Entry types', 'Undo → Command · walks → Visitor'], 0);
+  sticky(L, svg.id, 790, 150, 380, 110, '#D3F5E1', '② Dynamic (user input)', ['Every path and text at runtime', 'Absolute or relative, . and ..', 'Validate type, clash, cycle'], 0);
+  sticky(L, svg.id, 790, 280, 380, 110, '#FFE3E3', '③ High traffic (concurrency)', ['Not for one shell (say why)', 'Shared: cwd per Session', 'Read-write lock or per-dir locks'], 0);
+  [75, 205, 335].forEach(y => edge(L, {kind: 'dep', p: [[X + W, ry], [745, ry], [745, y], [790, y]]}));
+
+  // side notes per step
+  sticky(L, svg.id, 40, 22, 340, 100, '#E3EEFF', 'Picture a shell', ['mkdir · write · cd · mv · rm · find', 'Files and folders: one tree'], 0);
+  edge(L, {kind: 'dep', p: [[X, 72], [380, 72]]});
+  sticky(L, svg.id, 40, 290, 340, 120, '#EFE7FF', 'Nouns → classes', ['FileSystem, Entry', 'File, Directory', 'SearchFilter + 3 rules'], 0);
+  edge(L, {kind: 'dep', p: [[X, 352], [380, 352]]});
+  sticky(L, svg.id, 790, 455, 380, 92, '#EFF1F4', 'Relationships + flow', ['is a → Directory is an Entry', 'has many → Directory has Entries'], 0);
+  edge(L, {kind: 'dep', p: [[X + W, 502], [790, 502]]});
+  sticky(L, svg.id, 790, 595, 380, 92, '#EFF1F4', 'Build bottom-up', ['Entry → File, Directory', '→ Filters → FileSystem → Main'], 0);
+  edge(L, {kind: 'dep', p: [[X + W, 642], [790, 642]]});
+
+  // which round covers which steps
+  txt(L.labels, 40, 560, 'LLD round', {'font-family': FONT, 'font-size': 14, 'font-weight': 800, fill: '#5b5bd6'});
+  txt(L.labels, 40, 582, 'Requirements → Entities → Class diagram', {'font-family': FONT, 'font-size': 13, fill: '#2f3540'});
+  txt(L.labels, 40, 620, 'Machine coding round', {'font-family': FONT, 'font-size': 14, 'font-weight': 800, fill: '#e8590c'});
+  txt(L.labels, 40, 642, 'Entities → Working code', {'font-family': FONT, 'font-size': 13, fill: '#2f3540'});
+})();
+
+/* ---------- revision diagram ---------- */
+(function(){
+  const svg = document.getElementById('revSvg');
+  const L = setupCanvas(svg);
+  const FLOW = '#5b5bd6', STRUCT = '#9aa3b2';
+  function box(x, y, w, h, c, name, sub){
+    const [body, head] = PALETTE[c];
+    const g = el('g', {filter: `url(#${svg.id}-sh)`}, L.nodes);
+    el('rect', {x, y, width: w, height: h, rx: 12, fill: body, stroke: head, 'stroke-width': 2.5}, g);
+    txt(g, x + w / 2, y + (sub ? 32 : h / 2 + 7), name, {'text-anchor': 'middle', 'font-family': FONT, 'font-size': 20, 'font-weight': 800, fill: '#1f2328'});
+    if (sub) txt(g, x + w / 2, y + 56, sub, {'text-anchor': 'middle', 'font-family': MONO, 'font-size': 14, fill: '#3d4450'});
+  }
+  box(20, 40, 200, 72, 'gray', 'Client', 'find / -ext txt');
+  box(380, 40, 240, 72, 'yellow', 'FileSystem', 'root · current');
+  box(790, 40, 190, 72, 'purple', 'Directory', 'Map name → Entry');
+  box(20, 220, 200, 72, 'sky', 'Results', 'List<String>');
+  box(380, 220, 240, 72, 'orange', 'SearchFilter', 'matches(entry)?');
+  box(790, 220, 190, 72, 'blue', 'Entry', 'File | Directory');
+
+  // structure: has-a (grey)
+  [
+    {kind: 'comp', p: [[600, 40], [600, 18], [885, 18], [885, 40]]},
+    {kind: 'comp', p: [[940, 112], [940, 220]]}
+  ].forEach(e => edge(L, Object.assign({color: STRUCT}, e)));
+
+  // flow: numbered calls for one search (purple)
+  [
+    {p: [[220, 76], [380, 76]], label: [300, 76, '1 · search()'], size: 14},
+    {p: [[620, 76], [790, 76]], label: [705, 76, '2 · resolve(path)'], size: 14},
+    {p: [[850, 112], [850, 220]], label: [850, 160, '3 · getChildren()'], size: 13},
+    {p: [[490, 112], [490, 220]], label: [490, 160, '4 · matches()'], size: 14},
+    {p: [[600, 112], [600, 196], [790, 196], [790, 220]], label: [690, 196, '5 · getPath()'], size: 13},
+    {p: [[400, 112], [400, 150], [120, 150], [120, 220]], label: [260, 150, '6 · found.add()'], size: 14}
+  ].forEach(e => edge(L, {kind: 'flow', p: e.p, color: FLOW, label: e.label, labelColor: FLOW, labelSize: e.size || 16}));
+
+  // notes
+  sticky(L, svg.id, 730, 380, 250, 116, '#FFF3A3', '💡 Key idea', ['A Directory is an Entry', 'and holds Entries.', 'One walk does all.'], 1, 15);
+  sticky(L, svg.id, 40, 340, 280, 116, '#D3F5E1', '🛡 No cycles', ['mv: walk up from the', 'new parent; meet the', 'source → refuse'], -1, 15);
+
+  // legend
+  const lg = el('g', {transform: 'translate(40,510)'}, L.labels);
+  el('line', {x1: 0, y1: 10, x2: 44, y2: 10, stroke: STRUCT, 'stroke-width': 2.5}, lg);
+  txt(lg, 54, 16, 'structure: has-a', {'font-family': FONT, 'font-size': 17, fill: '#3d4450'});
+  el('line', {x1: 0, y1: 42, x2: 44, y2: 42, stroke: FLOW, 'stroke-width': 2.5}, lg);
+  txt(lg, 54, 48, '1 → 6  calls for one search (find / -ext txt)', {'font-family': FONT, 'font-size': 17, 'font-weight': 700, fill: FLOW});
+})();
+
+/* ---------- PNG export + fullscreen ---------- */
+document.querySelectorAll('[data-png]').forEach(b => b.addEventListener('click', () => {
+  const svg = document.getElementById(b.dataset.png);
+  const vb = svg.viewBox.baseVal, k = 2;
+  const clone = svg.cloneNode(true);
+  clone.setAttribute('width', vb.width); clone.setAttribute('height', vb.height);
+  const src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(new XMLSerializer().serializeToString(clone));
+  const img = new Image();
+  img.onload = () => {
+    const c = document.createElement('canvas'); c.width = vb.width * k; c.height = vb.height * k;
+    const ctx = c.getContext('2d'); ctx.fillStyle = '#fbfbfc'; ctx.fillRect(0, 0, c.width, c.height);
+    ctx.drawImage(img, 0, 0, c.width, c.height);
+    c.toBlob(blob => { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = b.dataset.name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); });
+  };
+  img.src = src;
+}));
+document.querySelectorAll('[data-fs]').forEach(b => b.addEventListener('click', () => {
+  const f = document.getElementById(b.dataset.fs);
+  if (document.fullscreenElement) document.exitFullscreen(); else f.requestFullscreen && f.requestFullscreen();
+}));
+
+/* ---------- shell (mirrors FileSystem + Directory + File + filters) ---------- */
+const fsLog = document.getElementById('fsLog');
+let ROOT, CWD, FLASH = [];
+const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const mkDir = name => ({name, dir: true, kids: new Map(), parent: null});
+const mkFile = name => ({name, dir: false, text: '', parent: null});
+const sizeOf = e => e.dir ? [...e.kids.values()].reduce((s, c) => s + sizeOf(c), 0) : e.text.length;
+const pathOf = e => { if (!e.parent) return '/'; const p = pathOf(e.parent); return (p === '/' ? '' : p) + '/' + e.name; };
+const kids = d => [...d.kids.values()].sort((a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0);   // TreeMap order
+function addChild(d, e){ d.kids.set(e.name, e); e.parent = d; FLASH.push(e); }
+function removeChild(d, name){ const e = d.kids.get(name); d.kids.delete(name); if (e) e.parent = null; }
+const ext = f => { const i = f.name.lastIndexOf('.'); return i < 0 ? '' : f.name.slice(i + 1); };
+const parentOf = p => { const i = p.lastIndexOf('/'); return i < 0 ? '.' : i === 0 ? '/' : p.slice(0, i); };
+const nameOf = p => p.slice(p.lastIndexOf('/') + 1);
+function isSameOrInside(e, anc){ for (let x = e; x; x = x.parent) if (x === anc) return true; return false; }
+
+function resolve(p){                                         // FileSystem.resolve()
+  let e = p.startsWith('/') ? ROOT : CWD;
+  for (const part of p.split('/')){
+    if (!part || part === '.') continue;
+    if (part === '..'){ e = e.parent || e; continue; }
+    if (!e.dir) return null;
+    e = e.kids.get(part);
+    if (!e) return null;
+  }
+  return e;
+}
+
+// each command returns [output lines, java call]
+function run(line, out){
+  const say = s => out.push(s);
+  const find = (p, cmd) => { const e = resolve(p); if (!e) say(`${cmd}: ${p}: no such file or directory.`); return e; };
+  const findDir = (p, cmd) => { const e = find(p, cmd); if (!e) return null; if (!e.dir){ say(`${cmd}: ${pathOf(e)} is not a directory.`); return null; } return e; };
+  const asFile = (e, cmd) => { if (!e) return null; if (e.dir){ say(`${cmd}: ${pathOf(e)} is a directory.`); return null; } return e; };
+  const validName = n => { if (!n || n === '.' || n === '..'){ say(`Invalid name: '${n}'.`); return false; } return true; };
+  const touch = p => {
+    const parent = findDir(parentOf(p), 'touch'), name = nameOf(p);
+    if (!parent || !validName(name)) return false;
+    if (parent.kids.has(name)){ say(`touch: ${pathOf(parent.kids.get(name))} already exists.`); return false; }
+    const f = mkFile(name); addChild(parent, f); say('touch ' + pathOf(f)); return true;
+  };
+  const tree = (e, ind) => {
+    say(ind + (e === ROOT ? '/' : e.name + (e.dir ? '/' : '')) + `  (${sizeOf(e)} B)`);
+    if (e.dir) kids(e).forEach(c => tree(c, ind + '  '));
+  };
+  const lsLine = e => (e.dir ? `d ${e.name}/` : `f ${e.name}`) + `  ${sizeOf(e)} B`;
+
+  const m = line.trim().match(/^(\S+)\s*(.*)$/);
+  if (!m) return null;
+  const cmd = m[1], rest = m[2].trim(), args = rest ? rest.split(/\s+/) : [];
+  const p = args[0] || '.', q = s => JSON.stringify(s);
+  const text = rest.slice((args[0] || '').length).trim().replace(/^"(.*)"$/, '$1');
+
+  switch (cmd){
+    case 'mkdir': {
+      let d = p.startsWith('/') ? ROOT : CWD;
+      for (const part of p.split('/')){
+        if (!part || part === '.') continue;
+        if (part === '..'){ d = d.parent || d; continue; }
+        let c = d.kids.get(part);
+        if (!c){ c = mkDir(part); addChild(d, c); }
+        else if (!c.dir){ say(`mkdir: ${pathOf(c)} is a file.`); return `fs.mkdir(${q(p)}) → false`; }
+        d = c;
+      }
+      say('mkdir ' + pathOf(d));
+      return `fs.mkdir(${q(p)})`;
+    }
+    case 'touch': return `fs.createFile(${q(p)}) → ${touch(p)}`;
+    case 'write': {
+      let e = resolve(p);
+      if (!e){ if (!touch(p)) return `fs.writeFile(${q(p)}, …) → false`; e = resolve(p); }
+      const f = asFile(e, 'write'); if (!f) return `fs.writeFile(${q(p)}, …) → false`;
+      f.text = text; FLASH.push(f); say(`write ${pathOf(f)} (${f.text.length} B)`);
+      return `fs.writeFile(${q(p)}, ${q(text)})`;
+    }
+    case 'append': {
+      const f = asFile(find(p, 'append'), 'append'); if (!f) return `fs.appendFile(${q(p)}, …) → false`;
+      f.text += text; FLASH.push(f); say(`append ${pathOf(f)} (${f.text.length} B)`);
+      return `fs.appendFile(${q(p)}, ${q(text)})`;
+    }
+    case 'cat': {
+      const f = asFile(find(p, 'cat'), 'cat');
+      if (f) f.text ? f.text.replace(/\n$/, '').split('\n').forEach(say) : say('(empty)');
+      return `fs.readFile(${q(p)})` + (f ? '' : ' → null');
+    }
+    case 'ls': {
+      const e = find(p, 'ls'); if (!e) return `fs.ls(${q(p)})`;
+      if (!e.dir) say(lsLine(e)); else { say('ls ' + pathOf(e)); kids(e).forEach(c => say('  ' + lsLine(c))); if (!e.kids.size) say('  (empty)'); }
+      return `fs.ls(${q(p)})`;
+    }
+    case 'cd': {
+      const d = findDir(p, 'cd'); if (d) CWD = d;
+      return `fs.cd(${q(p)}) → ${!!d}`;
+    }
+    case 'pwd': say(pathOf(CWD)); return 'fs.pwd()';
+    case 'tree': { const e = find(p, 'tree'); if (e) tree(e, ''); return `fs.tree(${q(p)})`; }
+    case 'rm': {
+      const e = find(p, 'rm'); let ok = false;
+      if (e === ROOT) say('rm: cannot delete the root.');
+      else if (e && isSameOrInside(CWD, e)) say(`rm: ${pathOf(e)} holds the working directory.`);
+      else if (e){ say('rm ' + pathOf(e)); removeChild(e.parent, e.name); ok = true; }
+      return `fs.delete(${q(p)}) → ${ok}` + (e && e !== ROOT && !ok ? '   // isSameOrInside(current, entry)' : '');
+    }
+    case 'mv': {
+      const to = args[1], call = `fs.move(${q(p)}, ${q(to || '')})`;
+      if (!to){ say('usage: mv <from> <to>'); return call; }
+      const src = find(p, 'mv'); if (!src) return call + ' → false';
+      if (src === ROOT){ say('mv: cannot move the root.'); return call + ' → false'; }
+      const target = resolve(to); let np, nn;
+      if (target && target.dir){ np = target; nn = src.name; }
+      else { np = findDir(parentOf(to), 'mv'); nn = nameOf(to); if (!np || !validName(nn)) return call + ' → false'; }
+      if (isSameOrInside(np, src)){ say(`mv: cannot move ${pathOf(src)} inside itself.`); return call + ' → false   // isSameOrInside(newParent, source)'; }
+      if (np.kids.has(nn)){ say(`mv: ${pathOf(np.kids.get(nn))} already exists.`); return call + ' → false'; }
+      const old = pathOf(src);
+      removeChild(src.parent, src.name); src.name = nn; addChild(np, src);
+      say(`mv ${old} -> ${pathOf(src)}`);
+      return call + (target && target.dir ? '   // into a directory' : '   // rename');
+    }
+    case 'find': {
+      const fs = [], names = [];
+      for (let i = 1; i < args.length; i += 2){
+        const k = args[i], v = args[i + 1] || '';
+        if (k === '-ext'){ fs.push(e => !e.dir && ext(e) === v); names.push(`new ExtensionFilter(${q(v)})`); }
+        else if (k === '-size'){ const n = parseInt(v, 10) || 0; fs.push(e => !e.dir && sizeOf(e) >= n); names.push(`new MinSizeFilter(${n})`); }
+        else if (k === '-name'){ fs.push(e => e.name.includes(v)); names.push(`new NameContainsFilter(${q(v)})`); }
+        else { say(`find: unknown option ${k} (use -ext, -size, -name)`); return 'fs.search(…)'; }
+      }
+      const match = e => fs.every(f => f(e)), found = [];
+      const walk = e => { if (match(e)) found.push(pathOf(e)); if (e.dir) kids(e).forEach(walk); };
+      const start = find(p, 'find'); if (start) walk(start);
+      if (start) say(found.length ? found.join('\n') : '(no match)');
+      return `fs.search(${q(p)}, ${names.join('.and(') + ')'.repeat(Math.max(0, names.length - 1)) || 'e -> true'})`;
+    }
+    case 'help':
+      ['mkdir <path>          touch <path>', 'write <path> <text>   append <path> <text>', 'cat <path>            ls [path]', 'cd <path>             pwd', 'mv <from> <to>        rm <path>', 'tree [path]           find <path> [-ext x] [-size n] [-name s]', 'reset'].forEach(say);
+      return null;
+    default: say(`${cmd}: unknown command. Type help.`); return null;
+  }
+}
+
+function fsLogEntry(cmd, out, call){
+  const li = document.createElement('li');
+  li.innerHTML = `<span class="fs-c">$ ${esc(cmd)}</span>` + (out.length ? `<pre class="fs-o">${esc(out.join('\n'))}</pre>` : '') + (call ? `<span class="call">${esc(call)}</span>` : '');
+  fsLog.prepend(li);
+  while (fsLog.children.length > 40) fsLog.lastChild.remove();
+}
+function fsRender(){
+  const rows = [];
+  const walk = (e, depth) => {
+    const cls = [e === CWD ? 'cwd' : '', FLASH.includes(e) ? 'flash' : ''].join(' ').trim();
+    const name = e === ROOT ? '/' : e.name + (e.dir ? '/' : '');
+    rows.push(`<div class="${cls}" style="padding-left:${8 + depth * 18}px"><span class="${e.dir ? 'd' : 'f'}">${e.dir ? '📁' : '📄'} ${esc(name)}</span><span class="sz">${sizeOf(e)} B</span></div>`);
+    if (e.dir) kids(e).forEach(c => walk(c, depth + 1));
+  };
+  walk(ROOT, 0);
+  document.getElementById('fsTree').innerHTML = rows.join('');
+  document.getElementById('fsCwd').textContent = 'cwd = ' + pathOf(CWD);
+  FLASH = [];
+}
+function fsReset(){
+  ROOT = mkDir(''); CWD = ROOT;
+  const quiet = [];
+  ['mkdir /home/alice/docs', 'mkdir /home/bob', 'mkdir /tmp', 'write /home/alice/docs/resume.txt Alice - Java developer',
+   'touch /home/bob/todo.txt', 'write /tmp/cache.log cache miss x 3'].forEach(c => run(c, quiet));
+  resolve('/home/alice/docs').kids.set('notes.md', Object.assign(mkFile('notes.md'), {text: '# LLD\n- Composite pattern\n', parent: resolve('/home/alice/docs')}));
+  fsLog.innerHTML = '';
+  fsLogEntry('# ready: the tree after step 2 of Main', [], 'new FileSystem() · mkdir × 3 · writeFile × 3 · appendFile · createFile');
+  FLASH = [];
+  fsRender();
+}
+function fsExec(line){
+  line = line.trim();
+  if (!line) return;
+  if (line === 'reset'){ fsReset(); return; }
+  const out = [], call = run(line, out);
+  fsLogEntry(line, out, call);
+  fsRender();
+}
+document.getElementById('fsForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const inp = document.getElementById('fsIn');
+  fsExec(inp.value); inp.value = '';
+});
+document.querySelectorAll('#fsEx .btn').forEach(b => b.addEventListener('click', () => fsExec(b.textContent)));
+fsReset();
+
+/* ---------- code explorer ---------- */
+(function(){
+  const data = JSON.parse(document.getElementById('repoFiles').textContent);
+  const byPath = {}; data.files.forEach(f => byPath[f.path] = f);
+  const MAIN = data.main || 'Main.java';
+  const tree = document.getElementById('ideTree'), tabsEl = document.getElementById('ideTabs');
+  const codeEl = document.getElementById('ideCode'), gut = document.getElementById('ideGutter');
+  const title = document.getElementById('ideTitle'), badge = document.getElementById('ideBadge');
+  document.getElementById('ideCnt').textContent = data.files.length;
+  let open = [], current = null;
+  const esc = t => t.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+
+  // build folder tree
+  const root = {dirs: {}, files: []};
+  data.files.forEach(f => {
+    const parts = f.path.split('/'); let n = root;
+    parts.slice(0, -1).forEach(d => n = n.dirs[d] = n.dirs[d] || {dirs: {}, files: []});
+    n.files.push(f.path);
+  });
+  function render(node, parent){
+    Object.keys(node.dirs).sort().forEach(d => {
+      const row = document.createElement('button'); row.type = 'button'; row.className = 'ide-row open';
+      row.innerHTML = `<span class="car">▸</span>📁 ${d}`;
+      const kids = document.createElement('div'); kids.className = 'ide-kids';
+      row.addEventListener('click', () => { kids.hidden = !kids.hidden; row.classList.toggle('open', !kids.hidden); });
+      parent.append(row, kids); render(node.dirs[d], kids);
+    });
+    node.files.sort().forEach(p => {
+      const row = document.createElement('button'); row.type = 'button'; row.className = 'ide-row'; row.dataset.path = p;
+      row.innerHTML = `<span class="car"></span>☕ ${p.split('/').pop()}` + (p === MAIN ? '<span class="mb">MAIN</span>' : '');
+      row.title = p;
+      row.addEventListener('click', () => show(p));
+      parent.appendChild(row);
+    });
+  }
+  render(root, tree);
+
+  function show(p){
+    if (!open.includes(p)) open.push(p);
+    current = p;
+    const f = byPath[p], code = f.code.replace(/\n$/, '');
+    codeEl.innerHTML = window.Prism ? Prism.highlight(code, Prism.languages.java, 'java') : esc(code);
+    gut.textContent = code.split('\n').map((_, i) => i + 1).join('\n');
+    document.getElementById('ideScroll').scrollTop = 0;
+    title.textContent = p.split('/').pop(); badge.hidden = p !== MAIN;
+    tree.querySelectorAll('.ide-row[data-path]').forEach(r => r.classList.toggle('on', r.dataset.path === p));
+    tabsEl.innerHTML = '';
+    open.forEach(q => {
+      const t = document.createElement('button'); t.type = 'button'; t.className = 'ide-tab' + (q === p ? ' on' : '');
+      t.innerHTML = `☕ ${q.split('/').pop()} <span class="x" title="Close">✕</span>`;
+      t.addEventListener('click', e => {
+        if (e.target.classList.contains('x')){
+          open = open.filter(x => x !== q);
+          if (!open.length) open = [MAIN];
+          show(q === current ? open[open.length - 1] : current);
+        } else show(q);
+      });
+      tabsEl.appendChild(t);
+    });
+  }
+  show(MAIN);
+
+  document.getElementById('ideCopy').addEventListener('click', e => {
+    navigator.clipboard && navigator.clipboard.writeText(byPath[current].code).then(() => { e.target.textContent = '✓'; setTimeout(() => e.target.textContent = '⧉', 1200); });
+  });
+  document.getElementById('ideFs').addEventListener('click', () => {
+    const ide = document.getElementById('ide');
+    if (document.fullscreenElement) document.exitFullscreen(); else ide.requestFullscreen && ide.requestFullscreen();
+  });
+  const outBox = document.getElementById('ideOut'), outPre = document.getElementById('ideOutPre'), outTab = document.getElementById('ideOutTab');
+  function toggleOut(force){ outBox.hidden = force === undefined ? !outBox.hidden : !force; outTab.classList.toggle('on', !outBox.hidden); }
+  outTab.addEventListener('click', () => { if (!outPre.textContent) outPre.textContent = data.output; toggleOut(); });
+  let timer = null;
+  document.getElementById('ideRun').addEventListener('click', () => {
+    clearInterval(timer); toggleOut(true);
+    const lines = data.output.split('\n'); let i = 0; outPre.textContent = '';
+    timer = setInterval(() => {
+      outPre.textContent += lines.slice(i, i + 12).join('\n') + '\n'; i += 12;
+      outPre.scrollTop = outPre.scrollHeight;
+      if (i >= lines.length) clearInterval(timer);
+    }, 30);
+  });
+})();
+
+/* ---------- flip cards ---------- */
+const fcs = [...document.querySelectorAll('.fc')];
+fcs.forEach(c => c.addEventListener('click', () => c.classList.toggle('open')));
+document.getElementById('fcAll').addEventListener('click', e => {
+  const show = fcs.some(c => !c.classList.contains('open'));
+  fcs.forEach(c => c.classList.toggle('open', show));
+  e.target.textContent = show ? 'Hide all answers' : 'Show all answers';
+});
+
+})();
+</script>
+<script src="problems.js"></script>
+<script src="site.js"></script>
+</body>
+</html>

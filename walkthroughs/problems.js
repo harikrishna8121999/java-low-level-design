@@ -26,13 +26,18 @@ window.LLD_PROBLEMS = [
   {slug: 'inventory-management', title: 'Inventory Management', icon: '📦', level: 'Medium', read: 25, pkg: 'inventory_management',
    blurb: 'Stock in, stock out and transfers across warehouses. Low stock fires an alert and an automatic reorder.',
    patterns: ['Observer', 'Strategy', 'Facade', 'Immutable log']},
+  {slug: 'file-system', title: 'File System', icon: '📁', level: 'Medium', read: 25, pkg: 'file_system',
+   blurb: 'An in-memory Unix-like tree. Make folders, write files, cd with relative paths, move, delete and search.',
+   patterns: ['Composite', 'Strategy (filters)', 'Facade', 'Tree walk']},
   {slug: 'chess', title: 'Chess', icon: '♞', level: 'Medium–Hard', read: 30, pkg: 'chess',
    blurb: 'Each piece moves its own way. A move is legal only if your king is not left in check.',
-   patterns: ['Template Method', 'Polymorphism', 'Simple Factory', 'Composition']}
+   patterns: ['Template Method', 'Polymorphism', 'Simple Factory', 'Composition']},
+  {slug: 'splitwise', title: 'Splitwise', icon: '💸', level: 'Hard', read: 25, pkg: 'splitwise',
+   blurb: 'Friends share costs in a group. Split equally or by percent, track who owes whom, and simplify the debts.',
+   patterns: ['Strategy', 'Simple Factory', 'Repository', 'Greedy netting']}
 ];
 /* Code in the repo, no walkthrough yet */
 window.LLD_CODE_ONLY = [
-  {title: 'Splitwise', level: 'Hard', pkg: 'splitwise'},
   {title: "Doctor's Appointment", level: 'Medium', pkg: 'doctors_appointment'},
   {title: 'Customer Issue Resolution', level: 'Medium', pkg: 'customer_support'},
   {title: 'Rate Limiter', level: 'Medium', pkg: 'rate_limiter'},
